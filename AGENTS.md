@@ -14,6 +14,14 @@
 - PR 合并后，删除本次合入的 `feature/*` 本地分支及其对应的远端分支（如存在）。删除前须确认待删分支的最新提交已包含在远端 `dev/master` 中。固定分支 `feature/test` 在本地和远端均须保留。
 - `master` 用于打包和创建发布标签。发布 PR 由本仓库的 `dev/master` 发起，并使用 Merge Commit 合并。
 
+## Git 提交信息约束
+
+- 根据代码变更生成符合 Conventional Commits 规范的 Git 提交信息。
+- 格式为 `<type>: <subject>`。
+- `type` 仅使用 `feat`、`fix`、`docs`、`style`、`refactor`、`perf`、`test`、`chore`。
+- `subject` 使用中文，50 字以内，不加句号。
+- 只输出提交信息，不要额外内容。
+
 ## 通用协作约束
 
 - 当收到指令时先进行评审，如果有不理解，觉得不合理的优先向我提出来。
