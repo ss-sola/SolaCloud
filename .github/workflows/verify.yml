@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      HUSKY: '0'
       VITEST_MAX_WORKERS: '1'
     steps:
       - name: Check out the proposed merge
