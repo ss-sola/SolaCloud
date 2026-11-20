@@ -162,12 +162,12 @@ export class DeepAgentService {
     let savedUserMessageId: number | null = null;
 
     try {
-      // 1. 验证会话存在
-      await this.validateSession(request.sessionId);
+      // 1. 校验会话归属后才能访问工作区或调用模型。
+      const { session, accountId } = await this.loadOwnedSession(request.sessionId);
 
       // 2. 获取或创建工作区并绑定 thread
       const workspace = await this.deepAgentRuntimeService.getOrCreateWorkspace({
-        accountId: ContextService.getCurrentAccount()?.accountId ?? 0,
+        accountId,
         sessionId: request.sessionId,
       });
       const threadId = workspace.threadId || this.generateThreadId();
@@ -175,8 +175,6 @@ export class DeepAgentService {
         workspace.threadId = threadId;
         await this.deepAgentRuntimeService.updateWorkspaceThreadId(workspace.workspaceId, threadId);
       }
-
-      const session = await this.chatSessionService.findOne(request.sessionId);
 
       context = {
         accountId: workspace.accountId,
@@ -333,10 +331,10 @@ export class DeepAgentService {
     let chatResult: AgentRunResult | null = null;
 
     try {
-      await this.validateSession(request.sessionId);
+      const { session, accountId } = await this.loadOwnedSession(request.sessionId);
 
       const workspace = await this.deepAgentRuntimeService.getOrCreateWorkspace({
-        accountId: ContextService.getCurrentAccount()?.accountId ?? 0,
+        accountId,
         sessionId: request.sessionId,
       });
       const threadId = workspace.threadId || this.generateThreadId();
@@ -344,8 +342,6 @@ export class DeepAgentService {
         workspace.threadId = threadId;
         await this.deepAgentRuntimeService.updateWorkspaceThreadId(workspace.workspaceId, threadId);
       }
-
-      const session = await this.chatSessionService.findOne(request.sessionId);
 
       context = {
         accountId: workspace.accountId,
@@ -1187,15 +1183,18 @@ export class DeepAgentService {
   // ── SSE token 桥接队列（async generator → async generator） ──
   // consumeMessageTokens 是 async generator，可以直接 yield，不需要队列
 
-  /** 验证会话是否存在 */
-  private async validateSession(sessionId: number): Promise<void> {
-    const session = await this.chatSessionService.findOne(sessionId);
+  /** 获取当前账号的会话，避免工作区或模型读取他人的数据。 */
+  private async loadOwnedSession(sessionId: number) {
+    const accountId = ContextService.getCurrentAccount()?.accountId;
+    if (!accountId) throw new ProjectException('请先登录', 403);
+    const session = await this.chatSessionService.findOwnedSession(sessionId, accountId);
     if (!session) {
       throw new ProjectException(
         `${DEEP_AGENT_ERROR_CODE_SESSION_NOT_FOUND}: 会话 ${sessionId} 不存在`,
         404,
       );
     }
+    return { session, accountId };
   }
 
   /** 生成线程 ID */
