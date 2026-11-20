@@ -1,0 +1,1 @@
+{ "rules": { "vitest/no-disabled-tests": "off" } }

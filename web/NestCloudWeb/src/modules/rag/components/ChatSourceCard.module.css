@@ -1,0 +1,51 @@
+.card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--rag-surface, #f7f7f8);
+  border: 1px solid var(--rag-border, #e5e5e5);
+  border-radius: 6px;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.card:hover {
+  background: var(--rag-hover, #ececf1);
+}
+
+.icon {
+  color: var(--rag-text-muted, #8e8ea0);
+  flex-shrink: 0;
+}
+
+.fileName {
+  color: var(--rag-text-primary, #202123);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.score {
+  color: var(--rag-primary, #10a37f);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.link {
+  color: var(--rag-text-secondary, #6e6e80);
+  text-decoration: none;
+  font-size: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.link:hover {
+  color: var(--rag-primary, #10a37f);
+  text-decoration: underline;
+}

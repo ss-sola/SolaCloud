@@ -1,0 +1,55 @@
+{
+  "name": "sola-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:system": "pnpm --dir ./apps/system-service start:dev",
+    "start:middleware": "pnpm --dir ./apps/middleware-service start:dev",
+    "start:rag": "pnpm --dir ./apps/rag-service start:dev",
+    "start:web": "pnpm --dir ./web/NestCloudWeb dev",
+    "build:web": "pnpm --dir ./web/NestCloudWeb build",
+    "build": "pnpm -r --if-present run build",
+    "format": "oxfmt --write \"apps/**/*.ts\" \"web/**/*.{ts,tsx}\" \"scripts/**/*.{mjs,ts}\"",
+    "lint": "node ./scripts/run-oxlint.mjs",
+    "test": "node ./scripts/run-tests.mjs",
+    "tsgo": "node ./scripts/run-tsgo.mjs",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@bull-board/api": "^7.1.5",
+    "@bull-board/express": "^7.1.5",
+    "@nest-cloud/sdk": "file:../NestCloud-Sdk",
+    "@nestjs/common": "^11.1.23",
+    "@nestjs/serve-static": "^5.0.5",
+    "@nestjs/typeorm": "^11.0.1",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.76.0",
+    "@opentelemetry/exporter-jaeger": "^2.7.1",
+    "@opentelemetry/instrumentation-express": "^0.66.0",
+    "@opentelemetry/instrumentation-http": "^0.218.0",
+    "@opentelemetry/sdk-node": "^0.218.0",
+    "bullmq": "^5.77.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "express": "^5.2.1",
+    "pg": "^8.16.3",
+    "redis": "^5.12.1",
+    "typeorm": "^0.3.30"
+  },
+  "devDependencies": {
+    "@typescript/native-preview": "^7.0.0-dev.20260522.1",
+    "@vitest/coverage-v8": "4.1.9",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
+    "oxfmt": "0.54.0",
+    "oxlint": "1.69.0",
+    "reflect-metadata": "^0.2.2",
+    "typescript": "^6.0.3",
+    "vite-tsconfig-paths": "6.1.1",
+    "vitest": "4.1.9"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
+}

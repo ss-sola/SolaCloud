@@ -1,0 +1,75 @@
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { defineConfig } from 'vite';
+
+function resolveManualChunk(id: string) {
+  const normalizedId = id.replace(/\\/g, '/');
+
+  if (normalizedId.includes('/src/modules/system/pages/')) {
+    return 'system-pages';
+  }
+
+  if (normalizedId.includes('/node_modules/monaco-editor/')) {
+    return 'monaco-editor';
+  }
+
+  if (normalizedId.includes('/node_modules/three/')) {
+    return 'three-engine';
+  }
+
+  if (normalizedId.includes('/node_modules/@react-three/')) {
+    return 'three-react';
+  }
+
+  if (
+    normalizedId.includes('/node_modules/docx-preview/') ||
+    normalizedId.includes('/node_modules/xlsx/')
+  ) {
+    return 'office-viewer';
+  }
+
+  return undefined;
+}
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js', '.jsx'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api/system': {
+        target: 'http://localhost:3200',
+        changeOrigin: true,
+      },
+      '/api/file': {
+        target: 'http://localhost:3300',
+        changeOrigin: true,
+      },
+      '/api/rag': {
+        target: 'http://localhost:3400',
+        changeOrigin: true,
+      },
+      '/api/knowledge': {
+        target: 'http://localhost:3400',
+        changeOrigin: true,
+      },
+      '/api/chat': {
+        target: 'http://localhost:3400',
+        changeOrigin: true,
+      },
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: resolveManualChunk,
+      },
+    },
+  },
+});

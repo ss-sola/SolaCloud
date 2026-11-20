@@ -1,0 +1,226 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.messageRow {
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ====== 用户消息 ====== */
+.userRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.userBubble {
+  max-width: 75%;
+  background: var(--rag-user-bubble, #2c2c2c);
+  color: #fff;
+  border-radius: 20px 20px 4px 20px;
+  padding: 12px 18px;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.attachmentChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+  width: auto;
+}
+
+.attachmentChip:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.attachmentName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.attachmentSize {
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+/* ====== AI 消息 ====== */
+.assistantRow {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--rag-avatar-gradient-start, #10a37f) 0%, var(--rag-avatar-gradient-end, #1a7f64) 100%);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.assistantBubble {
+  background: var(--rag-panel-bg, #fff);
+  border: 1px solid var(--rag-border, #e5e5e5);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--rag-text-primary, #202123);
+  font-size: 15px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+/* Markdown 渲染样式（CSS Modules scoped） */
+.mdTable {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.mdTable th,
+.mdTable td {
+  border: 1px solid var(--rag-border, #e5e5e5);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.mdTable th {
+  background: var(--rag-surface, #f7f7f8);
+  font-weight: 600;
+}
+
+.mdCode {
+  background: var(--rag-code-bg, #f4f4f5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: #e83e4a;
+}
+
+.mdPre {
+  background: var(--rag-code-bg, #f4f4f5);
+  border-radius: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.mdPre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.mdBlockquote {
+  border-left: 3px solid var(--rag-primary, #10a37f);
+  margin: 8px 0;
+  padding: 4px 16px;
+  color: var(--rag-text-secondary, #6e6e80);
+}
+
+.mdImage {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+/* 源码模式：完整展示 Markdown 原始文本 */
+.mdCodeBlock {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--rag-text-primary, #202123);
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.messageRow:hover .actions {
+  opacity: 1;
+}
+
+.actionBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--rag-text-muted, #8e8ea0);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionBtn:hover {
+  background: var(--rag-surface, #f7f7f8);
+  color: var(--rag-text-primary, #202123);
+}
+
+.actionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.regenSpinner {
+  animation: spin 0.8s linear infinite;
+}

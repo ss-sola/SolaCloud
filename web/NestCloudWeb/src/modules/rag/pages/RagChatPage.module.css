@@ -1,0 +1,367 @@
+.container {
+  display: flex;
+  min-height: 0;
+  background: var(--rag-container-bg, #f7f7f8);
+  height: 100%;
+}
+
+/* ============ 侧边栏 ============ */
+.sidebar {
+  width: 260px;
+  background: var(--rag-panel-bg, #fff);
+  border-right: 1px solid var(--rag-border, #e5e5e5);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+.sidebarCollapsed {
+  width: 52px;
+}
+
+.sidebarHeader {
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--rag-border, #e5e5e5);
+}
+
+.newChatBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--rag-input-border, #d0d0d0);
+  border-radius: 6px;
+  background: var(--rag-panel-bg, #fff);
+  color: var(--rag-text-primary, #202123);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  width: auto;
+}
+
+.newChatBtn:hover {
+  background: var(--rag-surface, #f7f7f8);
+}
+
+.collapseBtn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rag-input-border, #d0d0d0);
+  border-radius: 6px;
+  background: var(--rag-panel-bg, #fff);
+  color: var(--rag-text-secondary, #565869);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.collapseBtn:hover {
+  background: var(--rag-surface, #f7f7f8);
+}
+
+.sessionList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sessionItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.sessionItem:hover {
+  background: var(--rag-surface, #f7f7f8);
+}
+
+.sessionItem:hover .deleteBtn {
+  opacity: 1;
+}
+
+.sessionActive {
+  background: var(--rag-hover, #ececf1) !important;
+}
+
+.sessionTitle {
+  flex: 1;
+  font-size: 14px;
+  color: var(--rag-text-primary, #202123);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deleteBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--rag-text-muted, #8e8ea0);
+  opacity: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deleteBtn:hover {
+  color: var(--rag-danger, #ef4444);
+}
+
+/* ============ 主内容区 ============ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.messagesArea {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 16px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.streamingMessage {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assistantAvatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    var(--rag-avatar-gradient-start, #10a37f) 0%,
+    var(--rag-avatar-gradient-end, #1a7f64) 100%
+  );
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.messageBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.assistantBubble {
+  background: var(--rag-panel-bg, #fff);
+  border: 1px solid var(--rag-border, #e5e5e5);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--rag-text-primary, #202123);
+  font-size: 15px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+/* 流式渲染中的 Streamdown 内联样式 */
+.streamdownInline :global(strong) {
+  font-weight: 600;
+}
+
+.streamdownInline :global(code) {
+  background: var(--rag-code-bg, #f4f4f5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: #e83e4a;
+}
+
+.streamdownInline :global(pre) {
+  background: var(--rag-code-bg, #f4f4f5);
+  border-radius: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.streamdownInline :global(pre code) {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.streamdownInline :global(blockquote) {
+  border-left: 3px solid var(--rag-primary, #10a37f);
+  margin: 8px 0;
+  padding: 4px 16px;
+  color: var(--rag-text-secondary, #6e6e80);
+}
+
+.streamdownInline :global(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.streamdownInline :global(th),
+.streamdownInline :global(td) {
+  border: 1px solid var(--rag-border, #e5e5e5);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.streamdownInline :global(th) {
+  background: var(--rag-surface, #f7f7f8);
+  font-weight: 600;
+}
+
+.cursor {
+  display: inline-block;
+  width: 2px;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.sourcesRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.thinkingDots {
+  background: var(--rag-panel-bg, #fff);
+  border: 1px solid var(--rag-border, #e5e5e5);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.thinkingDots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rag-primary, #10a37f);
+  animation: thinking 1.4s ease-in-out infinite;
+}
+
+.thinkingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinkingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinking {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  30% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: var(--rag-text-muted, #c5c5d2);
+}
+
+.emptyTitle {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--rag-text-primary, #202123);
+  margin: 0 0 8px;
+}
+
+.emptyDesc {
+  font-size: 15px;
+  color: var(--rag-text-secondary, #6e6e80);
+  margin: 0;
+}
+
+/* ============ 输入区 ============ */
+.inputArea {
+  flex-shrink: 0;
+  border-top: 1px solid var(--rag-border, #e5e5e5);
+  background: var(--rag-panel-bg, #fff);
+  padding: 16px;
+}
+
+.inputWrapper {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.inputWrapperInner {
+  /* 防止上传进度条占用输入框布局空间 */
+}
+
+.uploadProgress {
+  text-align: center;
+  font-size: 13px;
+  color: var(--rag-primary, #10a37f);
+  padding: 4px 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
