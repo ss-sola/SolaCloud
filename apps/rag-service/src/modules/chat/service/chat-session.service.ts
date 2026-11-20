@@ -37,8 +37,8 @@ export class ChatSessionService extends BaseService<ChatSession> {
     await this.repository.update(sessionId, { title });
   }
 
-  /** 根据 ID 查询会话（含 deletedAt 条件） */
-  async findByIdWithDeletedCheck(id: number): Promise<ChatSession | null> {
-    return this.repository.findOneBy({ id });
+  /** 只返回当前账号拥有的未删除会话。 */
+  async findOwnedSession(id: number, accountId: number): Promise<ChatSession | null> {
+    return this.repository.findOneBy({ id, createUser: accountId, deletedAt: IsNull() });
   }
 }

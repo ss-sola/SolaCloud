@@ -152,7 +152,7 @@ function createMockDeepAgentRuntimeService(): DeepAgentRuntimeService {
 
 function createMockChatSessionService(): ChatSessionService {
   return {
-    findOne: vi.fn().mockResolvedValue({
+    findOwnedSession: vi.fn().mockResolvedValue({
       id: 1,
       title: 'Test Session',
       knowledgeBaseId: 1,
@@ -811,7 +811,7 @@ describe('DeepAgentService', () => {
     });
 
     it('should emit error event for session not found', async () => {
-      (mockChatSessionService.findOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      vi.mocked(mockChatSessionService.findOwnedSession).mockResolvedValue(null);
 
       const stream = service.streamChat(
         { sessionId: 99999, query: 'nonexistent session' },
@@ -1301,7 +1301,7 @@ describe('DeepAgentService', () => {
     });
 
     it('should throw normalized error for session not found', async () => {
-      (mockChatSessionService.findOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      vi.mocked(mockChatSessionService.findOwnedSession).mockResolvedValue(null);
 
       await expect(
         service.chat({ sessionId: 99999, query: 'sync error test' }, new Set<number>()),
@@ -1356,7 +1356,7 @@ describe('DeepAgentService', () => {
     });
 
     it('should validate session existence before processing', async () => {
-      (mockChatSessionService.findOne as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      vi.mocked(mockChatSessionService.findOwnedSession).mockResolvedValue(null);
 
       const stream = service.streamChat(
         { sessionId: 99999, query: 'invalid session test' },

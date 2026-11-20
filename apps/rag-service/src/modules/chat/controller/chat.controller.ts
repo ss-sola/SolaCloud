@@ -1,5 +1,5 @@
-import { ContextService, ProjectException, ResponseUtil } from '@nest-cloud/sdk';
-import { Body, Controller, Delete, Get, Post, Query, Res } from '@nestjs/common';
+import { AuthDenied, ContextService, ProjectException, ResponseUtil } from '@nest-cloud/sdk';
+import { Body, Controller, Delete, Get, HttpStatus, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { SSE_EVENT_TYPE } from '../chat.constants';
 import {
@@ -58,6 +58,7 @@ export class ChatController {
   /** 获取会话历史消息 */
   @Get('session/messages')
   async getSessionMessages(@Query() form: SessionMessagesForm) {
+    await this.requireSessionOwner(form.sessionId);
     const messages = await this.chatMessageService.findBySessionId(form.sessionId);
     await this.chatMessageService.enrichSourcesFileInfo(messages);
     return ResponseUtil.success(messages);
@@ -66,17 +67,7 @@ export class ChatController {
   /** 删除聊天会话 */
   @Delete('session')
   async deleteSession(@Query() form: DeleteSessionForm) {
-    const currentAccount = ContextService.getCurrentAccount();
-    if (!currentAccount) {
-      throw new ProjectException('请先登录');
-    }
-    const session = await this.chatSessionService.findByIdWithDeletedCheck(form.sessionId);
-    if (!session) {
-      throw new ProjectException('会话不存在');
-    }
-    if (session.createUser !== currentAccount.accountId) {
-      throw new ProjectException('无权删除该会话');
-    }
+    await this.requireSessionOwner(form.sessionId);
     await this.chatSessionService.delete(form.sessionId);
     return ResponseUtil.success(null);
   }
@@ -84,10 +75,7 @@ export class ChatController {
   /** SSE 流式聊天（Deep Agent） */
   @Post('send')
   async sendMessage(@Body() form: ChatSendForm, @Res() res: Response) {
-    const currentAccount = ContextService.getCurrentAccount();
-    if (!currentAccount) {
-      throw new ProjectException('请先登录');
-    }
+    const accountId = await this.requireSessionOwner(form.sessionId);
 
     // 设置 SSE 响应头
     res.setHeader('Content-Type', 'text/event-stream');
@@ -98,9 +86,7 @@ export class ChatController {
 
     try {
       // 获取当前账号已授权的知识库 ID 集合
-      const authorizedKbs = await this.knowledgeBaseService.listAccessible(
-        currentAccount.accountId,
-      );
+      const authorizedKbs = await this.knowledgeBaseService.listAccessible(accountId);
       const authorizedKnowledgeBaseIds = new Set(authorizedKbs.map((kb) => kb.id));
 
       const eventStream = this.deepAgentService.streamChat(
@@ -199,8 +185,18 @@ export class ChatController {
   /** 手动生成会话摘要标题 */
   @Post('session/summarize')
   async summarizeSession(@Body() form: SummarizeSessionForm) {
+    await this.requireSessionOwner(form.sessionId);
     const summary = await this.summaryService.summarizeSession(form.sessionId);
     await this.chatSessionService.updateTitle(form.sessionId, summary);
     return ResponseUtil.success(summary);
+  }
+
+  private async requireSessionOwner(sessionId: number): Promise<number> {
+    const accountId = ContextService.getCurrentAccount()?.accountId;
+    if (!accountId) throw new AuthDenied('请先登录');
+    if (!(await this.chatSessionService.findOwnedSession(sessionId, accountId))) {
+      throw new ProjectException('会话不存在', HttpStatus.NOT_FOUND);
+    }
+    return accountId;
   }
 }
