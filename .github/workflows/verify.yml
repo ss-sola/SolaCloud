@@ -1,0 +1,59 @@
+name: PR verification
+
+on:
+  push:
+    branches: [feature/setup-pr-ci]
+  pull_request:
+    branches: [dev/master, master]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: ${{ github.event_name == 'pull_request' && 'SolaCloud / lint, test, types and build' || 'SolaCloud / bootstrap verification' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITEST_MAX_WORKERS: '1'
+    steps:
+      - name: Check out the proposed merge
+        uses: actions/checkout@v7
+        with:
+          path: SolaCloud
+          persist-credentials: false
+
+      - name: Check out NestCloud SDK
+        uses: actions/checkout@v7
+        with:
+          repository: ss-sola/NestCloud-Sdk
+          ref: dev/master
+          path: NestCloud-Sdk
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.16.0'
+          package-manager-cache: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: SolaCloud/package.json
+
+      - name: Build SDK
+        working-directory: NestCloud-Sdk
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Install application dependencies
+        working-directory: SolaCloud
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint, test, build and type-check
+        working-directory: SolaCloud
+        run: |
+          pnpm run lint
+          pnpm run test
+          pnpm run tsgo

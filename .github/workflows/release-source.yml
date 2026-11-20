@@ -1,0 +1,24 @@
+name: Master release source
+
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions: {}
+
+jobs:
+  release-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Require this repository's dev/master branch
+        env:
+          SOURCE_BRANCH: ${{ github.event.pull_request.head.ref }}
+          SOURCE_REPOSITORY_ID: ${{ github.event.pull_request.head.repo.id }}
+          TARGET_REPOSITORY_ID: ${{ github.event.pull_request.base.repo.id }}
+        run: |
+          if [[ "$SOURCE_BRANCH" != "dev/master" || -z "$SOURCE_REPOSITORY_ID" || "$SOURCE_REPOSITORY_ID" != "$TARGET_REPOSITORY_ID" ]]; then
+            echo "::error::Only this repository's dev/master branch can merge into master."
+            exit 1
+          fi
