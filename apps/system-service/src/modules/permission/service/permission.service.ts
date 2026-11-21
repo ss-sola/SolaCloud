@@ -1,7 +1,7 @@
 import { BaseService, ProjectException } from '@nest-cloud/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, ILike, In, Repository } from 'typeorm';
+import { And, Equal, FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 import { SYSTEM_SERVICE_NAME } from '../../../system-service.constants';
 import { PageResult } from '../../../utils/pagination.types';
 import { PaginationUtil } from '../../../utils/pagination.util';
@@ -34,27 +34,27 @@ export class PermissionService extends BaseService<PermissionItem> {
   }
 
   async listItems(query: PermissionQueryForm): Promise<PageResult<PermissionRecord>> {
-    const pageQuery = PaginationUtil.normalizePageQuery(query);
+    const result = await this.queryItems(query);
+    return { ...result, list: result.list.map((item) => this.toRecord(item)) };
+  }
+
+  async queryItems(query: PermissionQueryForm) {
     const baseWhere: FindOptionsWhere<PermissionItem> = {
       ...(query.groupKey ? { groupKey: query.groupKey } : {}),
       ...(query.isEnabled !== undefined ? { isEnabled: query.isEnabled } : {}),
     };
-    const where = this.buildListWhere(baseWhere, query.keyword);
-    const [items, total] = await this.repository.findAndCount({
-      where,
-      order: PaginationUtil.buildOrder(query, {
-        allowedSortFields: ['id', 'code', 'name', 'groupKey', 'createdAt', 'updatedAt'],
-        defaultOrder: { groupKey: 'ASC', code: 'ASC' },
-      }),
-      skip: pageQuery.skip,
-      take: pageQuery.take,
-    });
-
-    return PaginationUtil.buildPageResult(
-      items.map((item) => this.toRecord(item)),
-      total,
-      pageQuery,
+    const where = this.buildListWhere(baseWhere, query.keyword ?? query.search);
+    const page = await this.paginate(
+      { pageNum: query.pageNum, pageSize: query.pageSize, search: query.search },
+      {
+        where,
+        order: PaginationUtil.buildOrder(query, {
+          allowedSortFields: ['id', 'code', 'name', 'groupKey', 'createdAt', 'updatedAt'],
+          defaultOrder: { groupKey: 'ASC', code: 'ASC' },
+        }),
+      },
     );
+    return { ...page, page: page.pageNum, totalPages: Math.ceil(page.total / page.pageSize) };
   }
 
   async getItem(id: number): Promise<PermissionRecord> {
@@ -207,7 +207,10 @@ export class PermissionService extends BaseService<PermissionItem> {
     return [
       { ...baseWhere, code: keywordLike },
       { ...baseWhere, name: keywordLike },
-      { ...baseWhere, groupKey: keywordLike },
+      {
+        ...baseWhere,
+        groupKey: baseWhere.groupKey ? And(Equal(baseWhere.groupKey), keywordLike) : keywordLike,
+      },
       { ...baseWhere, description: keywordLike },
     ];
   }
