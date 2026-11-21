@@ -139,3 +139,9 @@ INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu
 INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id, created_at, updated_at, deleted_at) VALUES (13, 1, 1, 17, 25, '2026-06-18 16:33:30.922895', '2026-06-18 16:33:30.922895', null);
 INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id, created_at, updated_at, deleted_at) VALUES (14, 1, 1, 18, 21, '2026-06-18 16:33:30.922895', '2026-06-18 16:33:30.922895', null);
 INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id, created_at, updated_at, deleted_at) VALUES (15, 1, 1, 19, 23, '2026-06-18 16:33:30.922895', '2026-06-18 16:33:30.922895', null);
+
+-- 集中日志查询默认仅授予系统管理员
+INSERT INTO public.sys_permission (id, create_user, update_user, code, name, group_key, description) VALUES (27, 1, 1, 'system:trace-log:query', '集中日志查询', 'audit', '按 traceId 查询网关和服务实例日志');
+INSERT INTO public.sys_menu_route (id, create_user, update_user, code, name, route_name, parent_id, icon, sort, route_root) VALUES (27, 1, 1, 'trace-log-page', '集中日志查询', 'trace-log', 4, 'operation-log', 3, 'system');
+INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id) VALUES (16, 1, 1, 27, 27);
+INSERT INTO public.sys_role_permission (id, create_user, update_user, role_id, permission_id) VALUES (27, 1, 1, 1, 27);

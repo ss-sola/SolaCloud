@@ -13,6 +13,7 @@
 - [login-log 模块](./login-log/README.md)
 - [notification 模块](./notification/README.md)
 - [operation-log 模块](./operation-log/README.md)
+- [集中日志查询接口](./trace-log/接口清单.md)
 - [通用底座扩展计划](./plan/system-service-通用底座扩展计划.md)
 - [NestCloudWeb 前端迁移计划](./plan/NestCloudWeb前端迁移计划.md)
 - 新前端基座入口：`web/NestCloudWeb`

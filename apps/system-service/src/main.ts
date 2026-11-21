@@ -1,6 +1,7 @@
 import { bootstrap, getConfig } from '@nest-cloud/sdk';
 import { isIP } from 'node:net';
 import { AppModule } from './app.module';
+import { SystemRequestLog } from './modules/trace-log/system-request-log.middleware';
 import { SystemServiceConfig } from './validate.config';
 
 void bootstrap({
@@ -15,5 +16,6 @@ void bootstrap({
       throw new Error('TrustedProxyIps must contain only IP addresses');
     }
     if (trusted.length) app.set('trust proxy', trusted);
+    app.use(SystemRequestLog.observe);
   },
 });

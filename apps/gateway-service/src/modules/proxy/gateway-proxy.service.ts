@@ -73,7 +73,7 @@ export class GatewayProxyService {
   }
 
   private exchange({ request, response, path, route, target }: Exchange): void {
-    const startedAt = Date.now();
+    const startedAtMs = Date.now();
     const trace = ContextService.createOutboundTrace('gateway.proxy');
     if (!response.hasHeader('x-trace-id')) response.setHeader('x-trace-id', trace.traceId);
     let incoming: IncomingMessage | undefined;
@@ -105,8 +105,12 @@ export class GatewayProxyService {
         path,
         service: route.upstream,
         instance: target.instanceId,
+        upstreamAddress: target.address.port
+          ? target.address.host
+          : target.address.hostname + (target.address.protocol === 'https:' ? ':443' : ':80'),
         status,
-        durationMs: Date.now() - startedAt,
+        startedAtMs,
+        durationMs: Date.now() - startedAtMs,
         traceId: trace.traceId,
         error,
       });

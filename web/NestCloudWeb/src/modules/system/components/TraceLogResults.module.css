@@ -1,0 +1,155 @@
+.results {
+  min-width: 0;
+}
+
+:global([data-theme='abyss']) .queryButton,
+:global([data-theme='abyss']) .queryButton:hover,
+:global([data-theme='abyss']) .queryButton:active,
+:global([data-theme='abyss']) .queryButton:disabled {
+  color: var(--system-panel);
+}
+
+.header,
+.entry {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.95fr) minmax(7rem, 0.7fr) minmax(8rem, 0.75fr) 4rem minmax(
+      0,
+      3fr
+    );
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.8rem 0.5rem;
+  border-bottom: 1px solid var(--system-border);
+}
+
+.header {
+  color: var(--system-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  font-size: 0.88rem;
+}
+
+.time,
+.address,
+.content {
+  min-width: 0;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+}
+
+.service,
+.address {
+  overflow-wrap: anywhere;
+}
+
+.address code {
+  color: inherit;
+}
+
+.mobileLabel {
+  display: none;
+}
+
+.level {
+  justify-self: start;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid var(--system-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.level[data-level='ERROR'] {
+  color: var(--bs-danger-text-emphasis);
+  background: var(--bs-danger-bg-subtle);
+}
+
+.preview {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.details > summary {
+  width: fit-content;
+  margin-top: 0.3rem;
+  color: var(--system-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.details[open] .expand,
+.details:not([open]) .collapse {
+  display: none;
+}
+
+.details pre {
+  max-height: 22rem;
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  background: var(--system-bg);
+  border: 1px solid var(--system-border);
+  border-radius: 8px;
+}
+
+@media (max-width: 991px) {
+  .header {
+    display: none;
+  }
+
+  .entries {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .entry {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'service level' 'time time' 'address address' 'content content';
+    gap: 0.35rem 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--system-border);
+    border-radius: 12px;
+  }
+
+  .time {
+    grid-area: time;
+  }
+  .service {
+    grid-area: service;
+    font-weight: 600;
+  }
+  .address {
+    grid-area: address;
+  }
+  .level {
+    grid-area: level;
+  }
+  .content {
+    grid-area: content;
+    padding-top: 0.35rem;
+  }
+
+  .mobileLabel {
+    display: inline;
+    margin-inline-end: 0.5rem;
+    color: var(--system-muted);
+  }
+}

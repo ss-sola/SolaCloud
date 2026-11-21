@@ -6,7 +6,7 @@ import { SessionAuthGuard } from '../../account/auth/session-auth.guard';
 import { SYSTEM_PERMISSION_CODES } from '../../account/auth/system-permission.constants';
 import { PERMISSION_CONTROLLER_ROUTE } from '../permission.constants';
 import { PermissionIdParamForm } from '../form/permission-id-param.form';
-import { PermissionQueryForm } from '../form/permission-query.form';
+import { PermissionListQueryForm, PermissionQueryForm } from '../form/permission-query.form';
 import { PermissionSaveForm } from '../form/permission-save.form';
 import { PermissionService } from '../service/permission.service';
 import { PermissionItem } from '../entity/permission.entity';
@@ -21,6 +21,11 @@ export class PermissionController extends BaseController<PermissionItem, Permiss
     super(permissionService);
   }
 
+  @Get()
+  override async findAll(@Query() query: PermissionQueryForm) {
+    return ResponseUtil.success(await this.permissionService.queryItems(query));
+  }
+
   @Get('overview')
   async getOverview() {
     return ResponseUtil.success(await this.permissionService.getOverview());
@@ -28,7 +33,7 @@ export class PermissionController extends BaseController<PermissionItem, Permiss
 
   @Get('list')
   async listItems(
-    @Query() query: PermissionQueryForm,
+    @Query() query: PermissionListQueryForm,
   ): Promise<ResponseUtil<PermissionListResult>> {
     return ResponseUtil.success(await this.permissionService.listItems(query));
   }

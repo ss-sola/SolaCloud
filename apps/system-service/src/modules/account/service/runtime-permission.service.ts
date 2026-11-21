@@ -98,6 +98,12 @@ export class RuntimePermissionService {
     };
   }
 
+  async hasCurrentPermission(accountId: number, code: string): Promise<boolean> {
+    const roles = await this.getEnabledRoles(accountId);
+    const permissions = await this.getPermissionCodes(roles.map((role) => role.id));
+    return permissions.includes(code);
+  }
+
   invalidateAccount(accountId: number): void {
     this.runtimeCache.delete(accountId);
   }

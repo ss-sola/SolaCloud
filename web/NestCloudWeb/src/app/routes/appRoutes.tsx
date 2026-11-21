@@ -32,6 +32,9 @@ const OnlineUserMonitorPage = lazy(async () => ({
 const OperationLogPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/OperationLogPage')).OperationLogPage,
 }));
+const TraceLogPage = lazy(async () => ({
+  default: (await import('../../modules/system/pages/TraceLogPage')).TraceLogPage,
+}));
 const PermissionPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/PermissionPage')).PermissionPage,
 }));
@@ -189,6 +192,18 @@ const appRoutes: AppRoute[] = [
       description: '查询基础资源中心的变更留痕。',
       requiresAuth: true,
       permissions: [],
+      routeRoot: 'system',
+    },
+  },
+  {
+    name: 'trace-log',
+    path: '/system/trace-log',
+    component: TraceLogPage,
+    meta: {
+      title: '集中日志查询',
+      description: '按 traceId 查看网关和服务实例日志。',
+      requiresAuth: true,
+      permissions: ['system:trace-log:query'],
       routeRoot: 'system',
     },
   },
