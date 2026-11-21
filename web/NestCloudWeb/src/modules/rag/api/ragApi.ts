@@ -1,6 +1,5 @@
 import { ApiClient } from '../../../shared/api/apiClient';
 import type {
-  AttachmentInput,
   ChatAttachmentForm,
   ChatMessage,
   ChatSession,
@@ -22,10 +21,6 @@ export class RagApi {
 
   static listKnowledgeBases() {
     return ApiClient.get<KnowledgeBase[]>(`${KNOWLEDGE_API_PREFIX}/base/list`);
-  }
-
-  static ingestAttachments(data: { knowledgeBaseId: number; attachments: AttachmentInput[] }) {
-    return ApiClient.post<KnowledgeDocument[]>(`${KNOWLEDGE_API_PREFIX}/ingest`, data);
   }
 
   static getDocumentStatus(documentId: number) {
@@ -82,7 +77,7 @@ export class RagApi {
   ): AbortController {
     const controller = new AbortController();
 
-    fetch(`${CHAT_API_PREFIX}/send`, {
+    fetch(ApiClient.buildUrl(`${CHAT_API_PREFIX}/send`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),

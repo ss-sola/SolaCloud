@@ -6,8 +6,8 @@
 import { Editor, loader } from '@monaco-editor/react';
 import type { EditorProps } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import editorWorker from 'monaco-editor/editor/editor.worker.js?worker';
+import tsWorker from 'monaco-editor/language/typescript/ts.worker.js?worker';
 
 // 注册本地 Web Worker，覆盖 Monaco 默认的 CDN worker 加载逻辑
 self.MonacoEnvironment = {

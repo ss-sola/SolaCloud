@@ -7,6 +7,7 @@ import { FakeListChatModel } from '@langchain/core/utils/testing';
 import { MemorySaver, InMemoryStore } from '@langchain/langgraph';
 import {
   createDeepAgent,
+  createSkillsMiddleware,
   StateBackend,
   StoreBackend,
   LocalShellBackend,
@@ -610,8 +611,6 @@ description: A test skill for compatibility verification
 This is a test skill used to verify skills middleware compatibility.
 `,
       );
-
-      const { createSkillsMiddleware } = await import('deepagents');
 
       const skillsMiddleware = createSkillsMiddleware({
         backend: new StateBackend(),

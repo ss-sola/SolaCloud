@@ -8,14 +8,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDirectory, '..');
 const appsDirectory = path.join(repoRoot, 'apps');
 const webDirectory = path.join(repoRoot, 'web');
-const tsgoEntry = path.join(
-  repoRoot,
-  'node_modules',
-  '@typescript',
-  'native-preview',
-  'bin',
-  'tsgo.js',
-);
+const tscEntry = path.join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc');
 
 function getProjectConfigs() {
   const configs = [];
@@ -73,26 +66,26 @@ for (const project of projects) {
   const buildConfigPath = path.join(project.projectDirectory, 'tsconfig.build.json');
   fs.writeFileSync(buildConfigPath, JSON.stringify(buildConfig, null, 2));
 
+  let buildStatus;
   try {
     const buildResult = spawnSync(pnpmCommand, [...pnpmArguments, 'run', 'build'], {
       cwd: project.projectDirectory,
       stdio: 'inherit',
       shell: pnpmShell,
     });
-    if ((buildResult.status ?? 1) !== 0) {
-      process.exit(buildResult.status ?? 1);
-    }
+    buildStatus = buildResult.status ?? 1;
   } finally {
     fs.rmSync(buildConfigPath, { force: true });
   }
+  if (buildStatus !== 0) process.exit(buildStatus);
 }
 
-// Step 2: Type check with tsgo (use original tsconfig to check all files including tests)
+// Check all files, including tests, with the original tsconfig.
 for (const project of projects) {
   console.log(`Type checking ${project.projectName} with tsgo...`);
   const result = spawnSync(
     process.execPath,
-    [tsgoEntry, '--noEmit', '-p', project.absoluteConfigPath],
+    [tscEntry, '--noEmit', '-p', project.absoluteConfigPath],
     {
       cwd: project.projectDirectory,
       stdio: 'inherit',

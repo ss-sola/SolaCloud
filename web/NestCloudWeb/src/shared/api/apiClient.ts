@@ -52,16 +52,37 @@ export class ApiClient {
     });
   }
 
-  private static buildUrl(path: string, query?: RequestOptions['query']) {
-    const searchParams = new URLSearchParams();
+  static buildUrl(path: string, query?: RequestOptions['query']): string {
+    const url = new URL(path, ApiClient.gatewayOrigin());
     Object.entries(query ?? {}).forEach(([key, value]) => {
       if (value === undefined || value === null || String(value).trim() === '') {
         return;
       }
-      searchParams.set(key, String(value).trim());
+      url.searchParams.set(key, String(value).trim());
     });
-    const queryString = searchParams.toString();
-    return queryString ? `${path}?${queryString}` : path;
+    return url.href;
+  }
+
+  private static gatewayOrigin(): string {
+    const configured = import.meta.env.VITE_GATEWAY_ORIGIN?.trim();
+    if (configured) {
+      const url = new URL(configured);
+      if (
+        !['http:', 'https:'].includes(url.protocol) ||
+        url.pathname !== '/' ||
+        url.search ||
+        url.hash ||
+        url.username ||
+        url.password
+      ) {
+        throw new Error('VITE_GATEWAY_ORIGIN must be an HTTP(S) origin');
+      }
+      return url.origin;
+    }
+
+    const url = new URL(window.location.origin);
+    url.port = '3100';
+    return url.origin;
   }
 
   private static buildHeaders(options: RequestOptions): HeadersInit | undefined {

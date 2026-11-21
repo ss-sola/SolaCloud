@@ -1,5 +1,5 @@
-import { AuthDenied, ContextService, ProjectException, ResponseUtil } from '@nest-cloud/sdk';
-import { Body, Controller, Delete, Get, HttpStatus, Post, Query, Res } from '@nestjs/common';
+import { AuthDenied, ContextService, ProjectException, ResponseUtil, SessionAuthGuard } from '@nest-cloud/sdk';
+import { Body, Controller, Delete, Get, HttpStatus, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { SSE_EVENT_TYPE } from '../chat.constants';
 import {
@@ -18,6 +18,7 @@ import { DeepAgentService } from '../service/deep-agent.service';
 import { KnowledgeBaseService } from '../../knowledge/service/knowledge-base.service';
 
 @Controller('chat')
+@UseGuards(SessionAuthGuard)
 export class ChatController {
   constructor(
     private readonly chatSessionService: ChatSessionService,

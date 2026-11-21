@@ -1,4 +1,5 @@
 export const FILE_CONTROLLER_ROUTE = 'file';
+export const FILE_MANAGE_PERMISSION = 'system:attachment:manage';
 
 export const FILE_UPLOAD_FIELD_NAME = 'file';
 

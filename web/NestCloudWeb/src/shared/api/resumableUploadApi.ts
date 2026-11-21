@@ -239,7 +239,7 @@ export class ResumableUploader {
         this.abortController.signal.removeEventListener('abort', handleAbort);
       };
 
-      xhr.open('POST', this.urls.uploadUrl);
+      xhr.open('POST', ApiClient.buildUrl(this.urls.uploadUrl));
       xhr.withCredentials = true;
       xhr.responseType = 'text';
       xhr.upload.onprogress = (event) => {

@@ -1,8 +1,11 @@
 import {
   BaseController,
   DatabaseIdempotencyService,
+  PermissionGuard,
   ProjectException,
+  RequirePermissions,
   ResponseUtil,
+  SessionAuthGuard,
 } from '@nest-cloud/sdk';
 import {
   Body,
@@ -13,12 +16,14 @@ import {
   Put,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
   FILE_CONTROLLER_ROUTE,
+  FILE_MANAGE_PERMISSION,
   FILE_UPLOAD_FIELD_NAME,
   INTERCEPTOR_UPLOAD_MAX_SIZE_BYTES,
 } from '../file.constants';
@@ -62,6 +67,7 @@ export class FileController extends BaseController<FileItem, FileService> {
   }
 
   @Post('upload/check')
+  @UseGuards(SessionAuthGuard)
   async checkUpload(@Body() body: FileUploadCheckForm) {
     return ResponseUtil.success(
       await this.fileUploadSessionService.checkUpload({
@@ -73,6 +79,7 @@ export class FileController extends BaseController<FileItem, FileService> {
   }
 
   @Post('upload')
+  @UseGuards(SessionAuthGuard)
   @UseInterceptors(uploadInterceptor)
   async upload(@UploadedFile() file: Express.Multer.File, @Body() body: FileUploadChunkForm) {
     if (!file) {
@@ -88,6 +95,7 @@ export class FileController extends BaseController<FileItem, FileService> {
   }
 
   @Post('upload/merge')
+  @UseGuards(SessionAuthGuard)
   async mergeUpload(@Body() body: FileUploadMergeForm) {
     return ResponseUtil.success(
       await this.fileUploadSessionService.mergeUpload({
@@ -104,11 +112,14 @@ export class FileController extends BaseController<FileItem, FileService> {
   }
 
   @Get('list')
+  @UseGuards(SessionAuthGuard, PermissionGuard)
+  @RequirePermissions(FILE_MANAGE_PERMISSION)
   async list(@Query() query: FileListForm) {
     return ResponseUtil.success(await this.fileService.list(query));
   }
 
   @Get('detail')
+  @UseGuards(SessionAuthGuard)
   async detail(@Query() query: FileQueryForm) {
     return ResponseUtil.success(await this.fileService.getDetail(query));
   }
@@ -119,6 +130,8 @@ export class FileController extends BaseController<FileItem, FileService> {
   }
 
   @Delete('remove')
+  @UseGuards(SessionAuthGuard, PermissionGuard)
+  @RequirePermissions(FILE_MANAGE_PERMISSION)
   async removeFile(@Query() query: FileQueryForm) {
     return ResponseUtil.success(await this.fileService.remove(query));
   }
@@ -141,6 +154,7 @@ export class FileController extends BaseController<FileItem, FileService> {
 
   /** 获取 zip 文件解压后的目录树结构 */
   @Get('tree')
+  @UseGuards(SessionAuthGuard)
   async tree(@Query() query: FileQueryForm) {
     const detail = await this.fileService.getDetail(query);
     if (!detail.isExtracted) {

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DynamicStructuredTool } from '@langchain/core/tools';
+import { getConfig } from '@nest-cloud/sdk';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -7,6 +8,7 @@ import { FileDownloadUtil } from '../../../utils/file-download.util';
 import { DocumentProcessorService } from '../../knowledge/service/document-processor.service';
 import { MediaProcessorService } from '../../knowledge/service/media-processor.service';
 import { MIME_TO_FILE_TYPE, FILE_TYPE_CATEGORY } from '../../../constants/rag.constants';
+import { RagConfigKeys } from '../../../config-keys';
 
 /** 单次文件读取最大字符数 */
 const MAX_FILE_CONTENT_CHARS = 8000;
@@ -60,6 +62,9 @@ export class ChatAttachmentToolService {
    * 读取指定 URL 的文件。
    */
   private async readAttachment(fileUrl: string): Promise<string> {
+    const trusted = this.trustedAttachmentUrl(fileUrl);
+    if (!trusted) return JSON.stringify({ success: false, error: '附件地址未获准' });
+    fileUrl = trusted.href;
     const fileName = this.extractFileName(fileUrl);
     const mimeType = this.inferMimeType(fileUrl);
     const category = MIME_TO_FILE_TYPE[mimeType];
@@ -104,6 +109,34 @@ export class ChatAttachmentToolService {
     } finally {
       await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
     }
+  }
+
+  private trustedAttachmentUrl(value: string): URL | undefined {
+    const base = URL.parse(getConfig<string>(RagConfigKeys.UploadPublicBaseUrl, '', false));
+    const url = URL.parse(value);
+    if (
+      !base ||
+      !url ||
+      !['http:', 'https:'].includes(base.protocol) ||
+      base.username ||
+      base.password ||
+      base.search ||
+      base.hash ||
+      url.origin !== base.origin ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      return undefined;
+
+    const prefix = base.pathname.replace(/\/+$/, '') + '/';
+    const relativePath = url.pathname.slice(prefix.length);
+    // Uploaded object keys use plain date segments and safe storage filenames.
+    if (!url.pathname.startsWith(prefix) || !/^[\w.-]+(?:\/[\w.-]+)*$/.test(relativePath)) {
+      return undefined;
+    }
+    return url;
   }
 
   /** 从 URL 提取文件名 */

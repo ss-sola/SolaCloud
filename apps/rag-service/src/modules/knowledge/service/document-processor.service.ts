@@ -49,11 +49,14 @@ export class DocumentProcessorService {
   }
 
   private async parsePdf(filePath: string): Promise<string> {
-    const fs = await import('fs');
-    const pdfParse = await import('pdf-parse');
-    const buffer = fs.readFileSync(filePath);
-    const result = await pdfParse.default(buffer);
-    return result.text;
+    const { readFile } = await import('node:fs/promises');
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: new Uint8Array(await readFile(filePath)) });
+    try {
+      return (await parser.getText()).text;
+    } finally {
+      await parser.destroy();
+    }
   }
 
   private async parseWord(filePath: string): Promise<string> {

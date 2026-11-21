@@ -437,6 +437,23 @@ describe('AccountService', () => {
     expect(session.avatarUrl).toBe('https://example.com/avatar.png');
   });
 
+  it('returns unauthorized for missing, stale, and deleted account sessions', async () => {
+    await expect(context.service.validateSession()).rejects.toMatchObject({ status: 401 });
+
+    seedAccount(context, {
+      id: 1,
+      accountName: 'admin',
+      displayName: '系统管理员',
+      password: 'admin123',
+    });
+    const session = await context.service.login('admin', 'admin123', {});
+    const stale = { ...session, statusVersion: session.statusVersion - 1 };
+    await expect(context.service.refreshSession(stale)).rejects.toMatchObject({ status: 401 });
+
+    context.stores.accountItems.delete(session.accountId);
+    await expect(context.service.validateSession(session)).rejects.toMatchObject({ status: 401 });
+  });
+
   it('should preserve loginAt when refreshing session', async () => {
     seedAccount(context, {
       id: 1,

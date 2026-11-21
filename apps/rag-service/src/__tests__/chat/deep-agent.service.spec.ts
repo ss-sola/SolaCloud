@@ -21,7 +21,8 @@ import {
 
 // ─── Mock @nest-cloud/sdk ────────────────────────────────────────────────
 
-vi.mock('@nest-cloud/sdk', () => ({
+vi.mock('@nest-cloud/sdk', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@nest-cloud/sdk')>()),
   BaseService: class {},
   ContextService: {
     getCurrentAccount: () => ({ accountId: 1 }),
