@@ -8,6 +8,9 @@ const setupFile = path.join(scriptDirectory, 'vitest.backend.setup.ts');
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    dedupe: ['@nest-cloud/sdk'],
+  },
   test: {
     environment: 'node',
     globals: true,

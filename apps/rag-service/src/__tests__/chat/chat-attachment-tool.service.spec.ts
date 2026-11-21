@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import * as fs from 'fs';
 import { DynamicStructuredTool } from '@langchain/core/tools';
+import { getConfig } from '@nest-cloud/sdk';
 import { ChatAttachmentToolService } from '../../../src/modules/chat/service/chat-attachment-tool.service';
+import { FileDownloadUtil } from '../../utils/file-download.util';
+
+vi.mock('@nest-cloud/sdk', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@nest-cloud/sdk')>()),
+  getConfig: vi.fn(() => 'http://files.example.test/uploads'),
+}));
 
 vi.mock('../../utils/file-download.util', () => ({
   FileDownloadUtil: {
@@ -11,13 +18,12 @@ vi.mock('../../utils/file-download.util', () => ({
   },
 }));
 
-vi.spyOn(fs.promises, 'mkdir').mockResolvedValue(undefined);
-vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
-
 describe('ChatAttachmentToolService', () => {
   let service: ChatAttachmentToolService;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(fs.promises, 'rm').mockResolvedValue(undefined);
     service = new ChatAttachmentToolService(
       {} as any, // DocumentProcessorService
       {} as any, // MediaProcessorService
@@ -61,10 +67,10 @@ describe('ChatAttachmentToolService', () => {
       const func = (tool as DynamicStructuredTool).func as (input: unknown) => Promise<string>;
 
       const urls = [
-        'http://example.com/test.pdf',
-        'http://example.com/test.png',
-        'http://example.com/test.mp4',
-        'http://example.com/test.mp3',
+        'http://files.example.test/uploads/test.pdf',
+        'http://files.example.test/uploads/test.png',
+        'http://files.example.test/uploads/test.mp4',
+        'http://files.example.test/uploads/test.mp3',
       ];
 
       for (const url of urls) {
@@ -73,6 +79,22 @@ describe('ChatAttachmentToolService', () => {
         expect(parsed.success).toBe(false);
         expect(parsed.error).toBe('附件读取失败');
       }
+    });
+
+    it('只从配置的上传目录读取附件，配置缺失时关闭下载', async () => {
+      const func = service.createTool().func as (input: unknown) => Promise<string>;
+      for (const fileUrl of [
+        'not a URL',
+        'http://other.example.test/uploads/test.pdf',
+        'http://files.example.test/other/test.pdf',
+      ]) {
+        expect(JSON.parse(await func({ fileUrl }))).toMatchObject({ success: false });
+      }
+      vi.mocked(getConfig).mockReturnValueOnce('');
+      expect(
+        JSON.parse(await func({ fileUrl: 'http://files.example.test/uploads/test.pdf' })),
+      ).toMatchObject({ success: false });
+      expect(FileDownloadUtil.downloadToFile).not.toHaveBeenCalled();
     });
   });
 });

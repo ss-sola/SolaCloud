@@ -1,7 +1,7 @@
 import { ContextService, ProjectException } from '@nest-cloud/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { HumanMessage } from '@langchain/core/messages';
-import type { DeepAgent, DeepAgentRunStream } from 'deepagents';
+import type { DeepAgent, DeepAgentRunStream } from 'deepagents' with { 'resolution-mode': 'import' };
 import { CHAT_ROLE } from '../chat.constants';
 import { RagConfigService } from '../../config/service/rag-config.service';
 import { ChatRagToolService } from './chat-rag-tool.service';
@@ -558,7 +558,7 @@ export class DeepAgentService {
     apiKey: string;
   }): Promise<any> {
     const { ChatOpenAI } = await import('@langchain/openai');
-    const { DEFAULT_LLM_TIMEOUT } = await import('../../../constants/rag.constants');
+    const { DEFAULT_LLM_TIMEOUT } = await import('../../../constants/rag.constants.js');
 
     return new ChatOpenAI({
       modelName: config.model,

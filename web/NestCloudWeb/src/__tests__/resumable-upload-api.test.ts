@@ -42,6 +42,7 @@ class MockWorker {
 describe('resumableUploadApi', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.resetModules();
   });
@@ -57,6 +58,8 @@ describe('resumableUploadApi', () => {
   });
 
   it('runs the shared uploader through check/upload/merge and skips uploaded chunks', async () => {
+    const gatewayOrigin = 'https://gateway.example.test';
+    vi.stubEnv('VITE_GATEWAY_ORIGIN', gatewayOrigin);
     const checkBodyAssertions = {
       fileId: 'frontend-session-1:01020304',
       totalSize: 5,
@@ -145,9 +148,13 @@ describe('resumableUploadApi', () => {
       onabort: (() => void) | null = null;
       onload: (() => void) | null = null;
 
-      open(_method: string, _url: string) {}
+      open(method: string, url: string) {
+        expect(method).toBe('POST');
+        expect(url).toBe(`${gatewayOrigin}/api/file/upload`);
+      }
 
       send(body: Document | XMLHttpRequestBodyInit | null | undefined) {
+        expect(this.withCredentials).toBe(true);
         const formData = body as FormData;
         const chunkIndex = Number(formData.get('chunkIndex'));
         const chunkFile = formData.get('file') as File;
@@ -215,5 +222,15 @@ describe('resumableUploadApi', () => {
     expect(progressSnapshots.some((item) => item.bytesPerSecond > 0)).toBe(true);
     expect(result.url).toBe('/public/uploads/avatar.png');
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${gatewayOrigin}/api/file/upload/check`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${gatewayOrigin}/api/file/upload/merge`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
   });
 });

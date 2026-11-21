@@ -110,14 +110,15 @@ export class TaskQueueService {
     const enrichedData = headers
       ? { ...(data as Record<string, unknown>), _headers: headers }
       : data;
-    return this.toRecord(
-      await queue.add(name, enrichedData, {
-        repeat: { pattern },
-        removeOnComplete: true,
-        removeOnFail: false,
-      }),
-      queue.name,
-    );
+    // BullMQ 5 schedules live in the same set. Reuse the existing key when
+    // migrating so the previously delayed cleanup job is replaced in place.
+    const existing = (await queue.getJobSchedulers()).find((scheduler) => scheduler.name === name);
+    const job = await queue.upsertJobScheduler(existing?.key ?? name, { pattern }, {
+      name,
+      data: enrichedData,
+      opts: { removeOnComplete: true, removeOnFail: false },
+    });
+    return this.toRecord(job, queue.name);
   }
 
   async getJob(id: string, name?: string) {

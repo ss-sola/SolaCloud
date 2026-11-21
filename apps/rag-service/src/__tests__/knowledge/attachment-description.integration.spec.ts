@@ -34,7 +34,7 @@ describe('AttachmentDescriptionService (integration)', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rag-integration-'));
-    mockInvoke.mockReset();
+    mockInvoke.mockReset().mockResolvedValue({ content: '测试描述结果' });
 
     mockFileServiceClient = {
       getFileDetail: async () => ({ data: null }),
@@ -181,8 +181,7 @@ describe('AttachmentDescriptionService (integration)', () => {
       fs.writeFileSync(tmpFilePath, content);
 
       const result = await service['describeFile'](tmpFilePath, 'text/plain', 'test-doc.txt');
-      expect(typeof result).toBe('string');
-      expect(result.length).toBeGreaterThan(0);
+      expect(result).toBe('测试描述结果');
       expect(mockInvoke).toHaveBeenCalled();
     });
   });

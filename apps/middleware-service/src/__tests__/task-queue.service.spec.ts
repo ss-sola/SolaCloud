@@ -6,6 +6,8 @@ const { MockQueue, queueInstances, redisQuit, MockRedis } = vi.hoisted(() => {
   class MockQueue {
     name: string;
     add = vi.fn();
+    getJobSchedulers = vi.fn();
+    upsertJobScheduler = vi.fn();
     getJob = vi.fn();
     close = vi.fn();
 
@@ -89,6 +91,25 @@ describe('TaskQueueService', () => {
     const service = new TaskQueueService();
 
     await expect(service.addJob('unknown-task', {})).rejects.toBeInstanceOf(ProjectException);
+  });
+
+  it('upgrades an existing repeatable job without creating a second scheduler', async () => {
+    const service = new TaskQueueService();
+    const queue = queueInstances[0];
+    const pattern = '0 0 * * *';
+    queue.getJobSchedulers.mockResolvedValue([
+      { name: TASK_UPLOAD_CLEANUP_JOB_NAME, key: 'previous-key' },
+    ]);
+    queue.upsertJobScheduler.mockResolvedValue(createJob('repeat:previous-key:1'));
+
+    const record = await service.addRepeatableJob(TASK_UPLOAD_CLEANUP_JOB_NAME, { ok: true }, pattern);
+    expect(record.id).toBe('repeat:previous-key:1');
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith('previous-key', { pattern }, {
+      name: TASK_UPLOAD_CLEANUP_JOB_NAME,
+      data: { ok: true },
+      opts: { removeOnComplete: true, removeOnFail: false },
+    });
+    expect(queue.add).not.toHaveBeenCalled();
   });
 
   it('gets and removes jobs from task specific queue', async () => {

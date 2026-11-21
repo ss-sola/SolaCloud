@@ -1,9 +1,19 @@
-import { bootstrap } from '@nest-cloud/sdk';
+import { bootstrap, getConfig } from '@nest-cloud/sdk';
+import { isIP } from 'node:net';
 import { AppModule } from './app.module';
 import { SystemServiceConfig } from './validate.config';
 
 void bootstrap({
   AppModule,
   validateConfig: SystemServiceConfig,
-  // skipCurrentAccountMiddleware: true, // system-service 使用自己的 CurrentAccountMiddleware
+  configureApp: (app) => {
+    const trusted = getConfig<string>('TrustedProxyIps', '')
+      .split(',')
+      .map((address) => address.trim())
+      .filter(Boolean);
+    if (trusted.some((address) => !isIP(address))) {
+      throw new Error('TrustedProxyIps must contain only IP addresses');
+    }
+    if (trusted.length) app.set('trust proxy', trusted);
+  },
 });

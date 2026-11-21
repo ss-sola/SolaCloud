@@ -36,33 +36,11 @@ export default defineConfig({
   resolve: {
     extensions: ['.tsx', '.ts', '.js', '.jsx'],
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(import.meta.dirname, 'src'),
     },
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api/system': {
-        target: 'http://localhost:3200',
-        changeOrigin: true,
-      },
-      '/api/file': {
-        target: 'http://localhost:3300',
-        changeOrigin: true,
-      },
-      '/api/rag': {
-        target: 'http://localhost:3400',
-        changeOrigin: true,
-      },
-      '/api/knowledge': {
-        target: 'http://localhost:3400',
-        changeOrigin: true,
-      },
-      '/api/chat': {
-        target: 'http://localhost:3400',
-        changeOrigin: true,
-      },
-    },
   },
   build: {
     chunkSizeWarningLimit: 600,

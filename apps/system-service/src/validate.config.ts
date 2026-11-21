@@ -9,6 +9,10 @@ export class SystemServiceConfig extends DatabaseConfig {
 
   @IsString()
   @IsOptional()
+  TrustedProxyIps?: string;
+
+  @IsString()
+  @IsOptional()
   SessionRedisUrl?: string;
 
   @IsString()
