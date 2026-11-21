@@ -1,6 +1,15 @@
 import { DatabaseConfig } from '@nest-cloud/sdk';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  Min,
+} from 'class-validator';
 
 /** system-service 配置校验。继承 DatabaseConfig，额外校验 RegistryUrl。 */
 export class SystemServiceConfig extends DatabaseConfig {
@@ -57,4 +66,18 @@ export class SystemServiceConfig extends DatabaseConfig {
   @IsString()
   @IsOptional()
   AccountAvatarUploadScene?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || undefined : value))
+  @IsOptional()
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_tld: false,
+    disallow_auth: true,
+  })
+  TraceLogLokiUrl?: string;
+
+  @IsOptional()
+  @Matches(/^[a-zA-Z0-9_.:-]+$/)
+  TraceLogLokiJob?: string;
 }

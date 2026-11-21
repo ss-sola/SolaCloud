@@ -11,6 +11,20 @@ export function formatDateTime(value?: string | null) {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
+export function formatTraceLogTime(timestampNs: string) {
+  const timestampMs = Number(timestampNs.slice(0, -6));
+  return new Date(timestampMs).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+    hour12: false,
+  });
+}
+
 export function formatTransferSpeed(bytesPerSecond: number) {
   if (bytesPerSecond >= 1024 * 1024) {
     return `${(bytesPerSecond / (1024 * 1024)).toFixed(2)} MB/s`;

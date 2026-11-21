@@ -10,4 +10,5 @@ export const SYSTEM_PERMISSION_CODES = {
   serviceMonitorQuery: 'system:monitor:service:query',
   loginLogQuery: 'system:login-log:query',
   operationLogQuery: 'system:operation-log:query',
+  traceLogQuery: 'system:trace-log:query',
 } as const;

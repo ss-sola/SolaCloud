@@ -54,6 +54,8 @@ export const SYSTEM_ROUTES: RouteGroup = {
     'operation-logs',
     'operation-logs/list',
     'operation-logs/overview',
+    'trace-logs',
+    'trace-logs/detail',
   ],
   POST: [
     'auth/login',
