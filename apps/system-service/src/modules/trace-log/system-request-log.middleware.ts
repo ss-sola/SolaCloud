@@ -15,9 +15,7 @@ export class SystemRequestLog {
       'finish',
       AsyncLocalStorage.bind(() => {
         const path = request.route?.path;
-        if (typeof path !== 'string' || response.statusCode < 200 || response.statusCode >= 300) {
-          return;
-        }
+        if (typeof path !== 'string') return;
 
         SystemRequestLog.logger.log({
           method: request.method,
