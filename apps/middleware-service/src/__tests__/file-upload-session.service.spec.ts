@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProjectException } from '@nest-cloud/sdk';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { FileStorageService } from '../modules/file/service/file-storage.service';
 import { MiddlewareConfigUtil } from '../utils/middleware-config.util';
 import { FILE_UPLOAD_SESSION_STATUS } from '../modules/file/file.constants';
 import { FileUploadSessionService } from '../modules/file/service/file-upload-session.service';
@@ -52,10 +57,12 @@ function createService(
       ...entity,
     })),
     findOne: vi.fn(),
+    update: vi.fn().mockResolvedValue({ affected: 1 }),
     find: vi.fn().mockResolvedValue([]),
     remove: vi.fn(),
     ...overrides.sessionRepository,
   } as any;
+  sessionRepository.findOneByOrFail = vi.fn(async () => (await sessionRepository.find())[0]);
   const fileService = {
     create: vi.fn(async (data: Record<string, unknown>) => ({
       ...data,
@@ -86,7 +93,7 @@ function createService(
     getMeta: vi.fn().mockResolvedValue(undefined),
     saveSnapshot: vi.fn(),
     deleteUpload: vi.fn(),
-    acquireMergeLock: vi.fn().mockResolvedValue(true),
+    acquireMergeLock: vi.fn().mockResolvedValue('lease-token'),
     releaseMergeLock: vi.fn(),
     ...overrides.redis,
   } as any;
@@ -296,6 +303,7 @@ describe('FileUploadSessionService', () => {
       },
     });
     vi.spyOn(service as any, 'calculateStorageHash').mockResolvedValue('actual-hash');
+    redis.releaseMergeLock.mockRejectedValueOnce(new Error('Redis unavailable'));
 
     await expect(
       service.mergeUpload({
@@ -307,14 +315,17 @@ describe('FileUploadSessionService', () => {
         businessType: 'document',
         isTemporary: true,
       } as any),
-    ).rejects.toBeInstanceOf(ProjectException);
+    ).rejects.toMatchObject({ message: '文件哈希校验失败' });
 
     expect(storage.removeStorage).toHaveBeenCalledWith({
       rootDir: expect.any(String),
       storagePath: '2026/05/video.bin',
     });
     expect(redis.saveSnapshot).toHaveBeenCalled();
-    expect(redis.releaseMergeLock).toHaveBeenCalledWith('frontend-session-1:source-hash');
+    expect(redis.releaseMergeLock).toHaveBeenCalledWith(
+      'frontend-session-1:source-hash',
+      'lease-token',
+    );
   });
 
   it('merges completed chunks into a final file record', async () => {
@@ -355,7 +366,10 @@ describe('FileUploadSessionService', () => {
 
     expect(storage.mergeChunks).toHaveBeenCalledTimes(1);
     expect(storage.removeChunkDir).toHaveBeenCalledTimes(1);
-    expect(redis.deleteUpload).toHaveBeenCalledWith('frontend-session-1:source-hash');
+    expect(redis.deleteUpload).toHaveBeenCalledWith(
+      'frontend-session-1:source-hash',
+      session.uploadId,
+    );
     expect(fileService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         originalName: 'merged-video.bin',
@@ -370,4 +384,116 @@ describe('FileUploadSessionService', () => {
     expect(result.file?.id).toBe(99);
     expect(result.file?.url).toContain('/public/uploads/');
   });
+
+  it.each(['snapshot', 'chunks', 'unlock'] as const)(
+    'keeps the completed file and replays the same result after a %s cleanup failure',
+    async (failure) => {
+      const dir = await mkdtemp(join(tmpdir(), 'solacloud-merge-'));
+      try {
+        const data = Buffer.from('attachment');
+        const form = {
+          fileId: 'frontend-session-1:source-hash',
+          originalName: 'attachment.txt',
+          fileHash: createHash('sha256').update(data).digest('hex'),
+        };
+        const chunks = join(dir, 'chunks');
+        vi.mocked(MiddlewareConfigUtil.getString).mockImplementation((key, fallback) => {
+          if (key === 'UploadRootDir') return dir;
+          if (key === 'UploadChunkTempRootDir') return chunks;
+          return fallback ?? '';
+        });
+        const storage = new FileStorageService();
+        const { sessionRepository, fileService, redis, zipExtract, taskQueue } = createService();
+        let saved = createSession({ chunkSize: data.length, chunkCount: 1 });
+        sessionRepository.find.mockImplementation(async () => [saved]);
+        sessionRepository.save.mockImplementation(
+          async (row: typeof saved) => (saved = { ...row }),
+        );
+        taskQueue.addJob.mockResolvedValue({ id: 'description' });
+        const service = new FileUploadSessionService(
+          sessionRepository,
+          fileService,
+          storage,
+          redis,
+          zipExtract,
+          taskQueue,
+        );
+        await storage.saveChunkBuffer({
+          tempRootDir: chunks,
+          chunkDirPath: saved.chunkDirPath,
+          chunkIndex: 0,
+          buffer: data,
+        });
+        const removeChunks = vi.spyOn(storage, 'removeChunkDir');
+        const failed = {
+          snapshot: redis.deleteUpload,
+          chunks: removeChunks,
+          unlock: redis.releaseMergeLock,
+        };
+        failed[failure].mockRejectedValueOnce(new Error('cleanup failed'));
+
+        const first = await service.mergeUpload(form);
+        expect(saved.status).toBe(FILE_UPLOAD_SESSION_STATUS.Completed);
+        expect(first.file?.id).toBe(saved.fileId);
+        expect(await readFile(join(dir, first.file!.storagePath))).toEqual(data);
+        expect(redis.releaseMergeLock).toHaveBeenCalledTimes(1);
+        expect(redis.deleteUpload).toHaveBeenCalledTimes(1);
+
+        fileService.findOne.mockResolvedValue(await fileService.create.mock.results[0].value);
+        redis.getMeta.mockRejectedValueOnce(new Error('Redis unavailable'));
+        const replay = await service.mergeUpload(form);
+        expect(replay.file).toEqual(first.file);
+        expect(fileService.create).toHaveBeenCalledTimes(1);
+        expect(taskQueue.addJob).toHaveBeenCalledTimes(1);
+        expect(await readFile(join(dir, replay.file!.storagePath))).toEqual(data);
+        expect(
+          await storage.listUploadedChunks({
+            tempRootDir: chunks,
+            chunkDirPath: saved.chunkDirPath,
+          }),
+        ).toEqual([]);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each(['before lease', 'during scan'] as const)(
+    'replays a competing merge completed %s',
+    async (when) => {
+      const session = createSession();
+      const { service, sessionRepository, fileService, redis, storage } = createService();
+      sessionRepository.find.mockResolvedValue([session]);
+      const completed = {
+        ...session,
+        status: FILE_UPLOAD_SESSION_STATUS.Completed,
+        fileId: 99,
+      };
+      sessionRepository.findOneByOrFail.mockResolvedValue(completed);
+      if (when === 'during scan') {
+        sessionRepository.findOneByOrFail.mockResolvedValueOnce(session);
+        storage.listUploadedChunks.mockResolvedValue([
+          { chunkIndex: 0, size: 4 },
+          { chunkIndex: 1, size: 4 },
+          { chunkIndex: 2, size: 2 },
+        ]);
+        sessionRepository.update.mockResolvedValue({ affected: 0 });
+      }
+      fileService.findOne.mockResolvedValue({
+        id: 99,
+        storagePath: 'video.bin',
+        createdAt: now,
+        updatedAt: now,
+      });
+      const result = await service.mergeUpload({
+        fileId: session.fileFingerprint,
+        originalName: 'video.bin',
+        fileHash: 'hash',
+      });
+      expect(result.file?.id).toBe(99);
+      expect(sessionRepository.save).not.toHaveBeenCalled();
+      expect(storage.mergeChunks).not.toHaveBeenCalled();
+      expect(redis.releaseMergeLock).toHaveBeenCalledWith(session.fileFingerprint, 'lease-token');
+    },
+  );
 });
