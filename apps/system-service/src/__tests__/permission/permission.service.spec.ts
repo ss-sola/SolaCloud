@@ -133,6 +133,10 @@ function matchesWhere(item: object, where: Record<string, unknown>) {
       if (marker._type === 'in' && Array.isArray(marker._value)) {
         return marker._value.includes(current);
       }
+      if (marker._type === 'and' && Array.isArray(marker._value)) {
+        return marker._value.every((operand) => matchesWhere(item, { [key]: operand }));
+      }
+      if (marker._type === 'equal') return current === marker._value;
     }
     return current === value;
   });
@@ -243,6 +247,39 @@ describe('PermissionService', () => {
     const result = await context.service.listItems(query);
     expect(result.total).toBe(1);
     expect(result.list[0].code).toBe('disabled-perm');
+  });
+
+  it('keeps the exact group and disabled state when a keyword matches another group name', async () => {
+    seedPermission(context, {
+      id: 1,
+      code: 'fixture:audit',
+      name: '匹配项',
+      groupKey: 'audit',
+      isEnabled: false,
+    });
+    seedPermission(context, {
+      id: 2,
+      code: 'fixture:other',
+      name: '其他项',
+      groupKey: 'audit-archive',
+      isEnabled: false,
+    });
+    seedPermission(context, {
+      id: 3,
+      code: 'fixture:enabled',
+      name: '启用项',
+      groupKey: 'audit',
+      isEnabled: true,
+    });
+
+    const result = await context.service.queryItems({
+      pageNum: 1,
+      pageSize: 10,
+      groupKey: 'audit',
+      keyword: 'audit',
+      isEnabled: false,
+    });
+    expect(result.list.map((item) => item.code)).toEqual(['fixture:audit']);
   });
 
   // --- getItem ---

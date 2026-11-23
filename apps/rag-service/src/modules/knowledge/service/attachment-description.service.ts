@@ -10,7 +10,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage } from '@langchain/core/messages';
 import { DEFAULT_LLM_TIMEOUT, FILE_DESCRIPTION_WRITE_STEP } from '../../../constants/rag.constants';
 import { FileDownloadUtil } from '../../../utils/file-download.util';
-import { getAnyExtractor } from 'any-extractor';
+import { extract } from 'any-extractor';
 import JSZip from 'jszip';
 import { MultimodalUtil } from '../utils/multimodal.util';
 
@@ -199,7 +199,7 @@ export class AttachmentDescriptionService {
     const fileBuffer = await fs.promises.readFile(filePath);
 
     // 1. 提取文本内容
-    const rawText = await this.extractText(fileBuffer, mimeType, fileName);
+    const rawText = await this.extractText(fileBuffer, fileName);
 
     if (!rawText || rawText.trim().length === 0) {
       return `[${fileName}] ${mimeType} 类型文件，内容为空`;
@@ -226,15 +226,9 @@ export class AttachmentDescriptionService {
   }
 
   /** 使用 any-extractor 提取文本内容 */
-  private async extractText(
-    fileBuffer: Buffer,
-    mimeType: string,
-    fileName: string,
-  ): Promise<string> {
-    const extractor = getAnyExtractor();
-
+  private async extractText(fileBuffer: Buffer, fileName: string): Promise<string> {
     try {
-      return await extractor.parseFile(fileBuffer);
+      return (await extract(fileBuffer)).text;
     } catch (error) {
       this.logger.warn(
         `any-extractor 解析失败: ${fileName} - ${error instanceof Error ? error.message : String(error)}`,

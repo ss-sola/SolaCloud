@@ -1,52 +1,62 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import html from '../../../../index.html?raw';
 
-import { useThemeStore } from '../../../shared/state/themeStore';
-
-function resetStore() {
-  localStorage.clear();
-  document.documentElement.removeAttribute('data-theme');
-  useThemeStore.getState().setTheme('light');
+// Exercise the pre-paint script used by the browser before React starts.
+async function openApp() {
+  const page = new DOMParser().parseFromString(html, 'text/html');
+  const root = document.documentElement;
+  root.dataset.theme = page.documentElement.dataset.theme;
+  root.dataset.bsTheme = page.documentElement.dataset.bsTheme;
+  const script = page.head.querySelector('script')!;
+  window.eval(script.textContent);
+  vi.resetModules();
+  return (await import('../../../shared/state/themeStore')).useThemeStore;
 }
 
-describe('themeStore', () => {
-  beforeEach(() => {
-    resetStore();
+afterEach(() => {
+  delete document.documentElement.dataset.theme;
+  delete document.documentElement.dataset.bsTheme;
+});
+
+describe('主题切换', () => {
+  it.each([
+    [null, 'light', null],
+    ['light', 'light', 'light'],
+    ['dark', 'dark', 'dark'],
+    ['abyss', 'dark', 'dark'],
+    ['unknown', 'light', 'unknown'],
+  ])('首次绘制和状态层使用同一主题（已保存 %s）', async (saved, expected, persisted) => {
+    if (saved) localStorage.setItem('theme', saved);
+    const store = await openApp();
+    expect(store.getState().themes).toEqual(['light', 'dark']);
+    expect(store.getState().theme).toBe(expected);
+    expect(document.documentElement.dataset.theme).toBe(expected);
+    expect(document.documentElement.dataset.bsTheme).toBe(expected);
+    expect(localStorage.getItem('theme')).toBe(persisted);
   });
 
-  afterEach(() => {
-    resetStore();
-  });
-
-  it('should default to light theme when no localStorage value exists', () => {
-    const state = useThemeStore.getState();
-    expect(state.theme).toBe('light');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-  });
-
-  it('should persist theme to localStorage when setTheme is called', () => {
-    useThemeStore.getState().setTheme('dark');
-    const state = useThemeStore.getState();
-
+  it('切换会通知订阅者并在刷新后保留', async () => {
+    const store = await openApp();
+    const listener = vi.fn();
+    const unsubscribe = store.subscribe(listener);
+    store.getState().setTheme('dark');
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
     expect(localStorage.getItem('theme')).toBe('dark');
-    expect(state.theme).toBe('dark');
+    expect((await openApp()).getState().theme).toBe('dark');
   });
 
-  it('should update document.documentElement.dataset.theme when setTheme is called', () => {
-    useThemeStore.getState().setTheme('abyss');
-
-    expect(document.documentElement.getAttribute('data-theme')).toBe('abyss');
-  });
-
-  it('should update reactively via Zustand subscription', () => {
-    let captured: string = 'light';
-
-    const unsub = useThemeStore.subscribe((s) => {
-      captured = s.theme;
+  it('存储不可用时仍可在当前页切换', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage blocked');
     });
-
-    useThemeStore.getState().setTheme('dark');
-    expect(captured).toBe('dark');
-
-    unsub();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('storage blocked');
+    });
+    const store = await openApp();
+    expect(store.getState().theme).toBe('light');
+    store.getState().setTheme('dark');
+    expect(document.documentElement.dataset.bsTheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 });

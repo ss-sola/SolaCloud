@@ -49,7 +49,7 @@ export function OfficeViewer({ url, fileName, extension }: OfficeViewerProps) {
 function PdfViewer({ url, fileName }: { url: string; fileName: string }) {
   return (
     <div style={{ height: '70vh', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
-      <div className="d-flex justify-content-end p-2 border-bottom bg-light">
+      <div className="d-flex justify-content-end p-2 border-bottom bg-body-tertiary">
         <a href={url} download={fileName} className="btn btn-sm btn-outline-primary">
           下载 PDF
         </a>
@@ -297,7 +297,7 @@ function XlsxViewer({ url }: { url: string }) {
         <strong>提示：</strong>当前仅预览表格数据，Excel 中的图片、图表等富内容不会显示。
       </div>
       {sheets.length > 1 && (
-        <div className="d-flex gap-1 p-2 border-bottom bg-light flex-wrap">
+        <div className="d-flex gap-1 p-2 border-bottom bg-body-tertiary flex-wrap">
           {sheets.map((name) => (
             <button
               key={name}

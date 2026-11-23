@@ -46,19 +46,6 @@ export class TaskWorkerService implements AfterApplicationBootstrap, OnModuleDes
   ) {}
 
   async afterApplicationBootstrap() {
-    this.createUploadCleanupWorker(
-      MiddlewareConfigUtil.getNumber(
-        MiddlewareConfigKeys.QueueDefaultConcurrency,
-        DEFAULT_QUEUE_DEFAULT_CONCURRENCY,
-      ),
-    );
-    this.createVectorizeWorker(
-      MiddlewareConfigUtil.getNumber(MiddlewareConfigKeys.AttachmentVectorizeConcurrency, 5),
-    );
-    this.createDescriptionCompleteWorker(
-      MiddlewareConfigUtil.getNumber(MiddlewareConfigKeys.AttachmentVectorizeConcurrency, 5),
-    );
-
     await this.taskQueueService.addRepeatableJob(
       TASK_UPLOAD_CLEANUP_JOB_NAME,
       {
@@ -71,6 +58,18 @@ export class TaskWorkerService implements AfterApplicationBootstrap, OnModuleDes
         MiddlewareConfigKeys.QueueCleanupCron,
         DEFAULT_QUEUE_CLEANUP_CRON,
       ),
+    );
+    this.createUploadCleanupWorker(
+      MiddlewareConfigUtil.getNumber(
+        MiddlewareConfigKeys.QueueDefaultConcurrency,
+        DEFAULT_QUEUE_DEFAULT_CONCURRENCY,
+      ),
+    );
+    this.createVectorizeWorker(
+      MiddlewareConfigUtil.getNumber(MiddlewareConfigKeys.AttachmentVectorizeConcurrency, 5),
+    );
+    this.createDescriptionCompleteWorker(
+      MiddlewareConfigUtil.getNumber(MiddlewareConfigKeys.AttachmentVectorizeConcurrency, 5),
     );
   }
 

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { RagConfigService } from '../../config/service/rag-config.service';
 import { FileServiceClient } from '../../../client/file-service.client';
 import type { FileDetailResponse } from '../../../client/file-service.client';
@@ -115,7 +115,7 @@ export class ChatRetrievalService {
 
     // 补充文档信息
     const documentIds = [...new Set(filteredResults.map((r) => r.documentId))];
-    const documents = await this.documentRepo.findByIds(documentIds);
+    const documents = await this.documentRepo.findBy({ id: In(documentIds) });
     const docMap = new Map(documents.map((d) => [d.id, d]));
 
     // 批量从 middleware-service 获取文件详情

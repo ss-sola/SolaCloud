@@ -68,7 +68,7 @@
 
 .inputBox:focus-within {
   border-color: var(--rag-primary, #10a37f);
-  box-shadow: 0 0 0 2px rgba(var(--rag-primary-rgb, 16), 163, 127, 0.1);
+  box-shadow: 0 0 0 2px rgba(var(--rag-primary-rgb, 16, 163, 127), 0.1);
 }
 
 .textarea {
@@ -139,6 +139,7 @@
 
 .sendBtnActive {
   background: var(--rag-text-primary, #202123);
+  color: var(--system-on-primary, #fff);
   cursor: pointer;
 }
 
@@ -155,7 +156,7 @@
   border: none;
   border-radius: 8px;
   background: var(--rag-danger, #ef4444);
-  color: #fff;
+  color: var(--system-on-primary, #fff);
   cursor: pointer;
   transition: all 0.15s ease;
 }

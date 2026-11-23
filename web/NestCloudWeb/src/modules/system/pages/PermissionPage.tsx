@@ -282,7 +282,7 @@ export function PermissionPage() {
             setFilters(draftFilters);
           }}
         >
-          <div className="col-md-3">
+          <div className="col-12 col-lg-5">
             <label className="form-label" htmlFor="permissionKeywordInput">
               关键词
             </label>
@@ -299,7 +299,7 @@ export function PermissionPage() {
               placeholder="Code / Name / Description"
             />
           </div>
-          <div className="col-md-2">
+          <div className="col-12 col-sm-6 col-lg-4">
             <label className="form-label" htmlFor="permissionGroupKeyInput">
               分组
             </label>
@@ -325,7 +325,7 @@ export function PermissionPage() {
               })}
             </select>
           </div>
-          <div className="col-md-2">
+          <div className="col-12 col-sm-6 col-lg-3">
             <label className="form-label" htmlFor="permissionIsEnabledSelect">
               状态
             </label>
@@ -351,12 +351,12 @@ export function PermissionPage() {
               })}
             </select>
           </div>
-          <div className="col-md-1 d-flex gap-2">
-            <button className="btn btn-success btn-sm" type="submit" disabled={isBusy}>
+          <div className="col-12 d-flex flex-wrap gap-2">
+            <button className="btn btn-success btn-sm text-nowrap" type="submit" disabled={isBusy}>
               查询
             </button>
             <button
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-outline-secondary btn-sm text-nowrap"
               type="button"
               onClick={() => {
                 setDraftFilters(defaultFilters);
@@ -366,9 +366,11 @@ export function PermissionPage() {
             >
               重置
             </button>
-          </div>
-          <div className="col ms-auto">
-            <button className="btn btn-success btn-sm" type="button" onClick={openCreateModal}>
+            <button
+              className="btn btn-success btn-sm text-nowrap ms-sm-auto"
+              type="button"
+              onClick={openCreateModal}
+            >
               新增
             </button>
           </div>

@@ -32,6 +32,9 @@ const OnlineUserMonitorPage = lazy(async () => ({
 const OperationLogPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/OperationLogPage')).OperationLogPage,
 }));
+const TraceLogPage = lazy(async () => ({
+  default: (await import('../../modules/system/pages/TraceLogPage')).TraceLogPage,
+}));
 const PermissionPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/PermissionPage')).PermissionPage,
 }));
@@ -58,7 +61,7 @@ export type RouteRoot = 'system' | 'rag';
 export interface AppRouteMeta {
   /** 页面标题，用于 topbar 展示 */
   title: string;
-  /** 页面描述，用于 topbar 副标题展示 */
+  /** 页面描述，作为共享页面框架的初始说明 */
   description: string;
   /** 是否需要登录才能访问，前端路由守卫依据此字段判断 */
   requiresAuth: boolean;
@@ -189,6 +192,18 @@ const appRoutes: AppRoute[] = [
       description: '查询基础资源中心的变更留痕。',
       requiresAuth: true,
       permissions: [],
+      routeRoot: 'system',
+    },
+  },
+  {
+    name: 'trace-log',
+    path: '/system/trace-log',
+    component: TraceLogPage,
+    meta: {
+      title: '集中日志查询',
+      description: '按 traceId 查看网关和服务实例日志。',
+      requiresAuth: true,
+      permissions: ['system:trace-log:query'],
       routeRoot: 'system',
     },
   },

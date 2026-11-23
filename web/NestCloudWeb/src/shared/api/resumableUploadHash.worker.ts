@@ -29,5 +29,3 @@ self.onmessage = async (event: MessageEvent<HashWorkerRequest>) => {
     self.postMessage(payload);
   }
 };
-
-export {};

@@ -80,7 +80,7 @@ describe('ChatRetrievalService', () => {
 
     const mockRepo = {
       query: vi.fn(),
-      findByIds: vi.fn(() => Promise.resolve([{ id: 1, fileId: 1, knowledgeBaseId: 1 }])),
+      findBy: vi.fn(() => Promise.resolve([{ id: 1, fileId: 1, knowledgeBaseId: 1 }])),
     };
 
     dataSource = {

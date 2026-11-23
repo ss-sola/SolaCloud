@@ -1,17 +1,40 @@
-import { bootstrap } from '@nest-cloud/sdk';
+import { HttpTraceLog } from '@solacloud/http-trace-log';
+import { Logger } from '@nestjs/common';
+import { AppLogger, bootstrap } from '@nest-cloud/sdk';
 import { ExpressAdapter } from '@bull-board/express';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { static as serveStatic } from 'express';
+import { resolve } from 'node:path';
 import { AppModule } from './app.module';
 import { MiddlewareConfigKeys } from './config-keys';
 import { TaskQueueService } from './modules/task/service/task-queue.service';
 import { MiddlewareConfigUtil } from './utils/middleware-config.util';
 import { MiddlewareServiceConfig } from './validate.config';
+import {
+  DEFAULT_UPLOAD_PUBLIC_BASE_URL,
+  DEFAULT_UPLOAD_ROOT_DIR,
+} from './modules/file/file.constants';
+
+HttpTraceLog.installSdkLogPolicy(AppLogger);
 
 void bootstrap({
   AppModule,
   validateConfig: MiddlewareServiceConfig,
   configureApp: (app) => {
+    app.use(HttpTraceLog.observe(new Logger('ServiceRequestLog')));
+    const uploadRoot = MiddlewareConfigUtil.getString(
+      MiddlewareConfigKeys.UploadRootDir,
+      DEFAULT_UPLOAD_ROOT_DIR,
+    );
+    app.use(
+      DEFAULT_UPLOAD_PUBLIC_BASE_URL,
+      serveStatic(resolve(uploadRoot), {
+        index: false,
+        redirect: false,
+      }),
+    );
+
     const bullBoardEnabled = MiddlewareConfigUtil.getBoolean(
       MiddlewareConfigKeys.BullBoardEnabled,
       false,

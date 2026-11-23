@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -10,6 +10,9 @@ import { PermissionService } from '@/modules/permission/service/permission.servi
 
 describe('PermissionController (e2e)', () => {
   let app: INestApplication<App>;
+  const filteredPage = { list: [], page: 1, pageNum: 1, pageSize: 10, total: 0, totalPages: 1 };
+  const queryItems = vi.fn(() => filteredPage);
+  const listItems = vi.fn(() => filteredPage);
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -23,18 +26,8 @@ describe('PermissionController (e2e)', () => {
               itemCount: 2,
               capabilities: ['item-crud', 'group-query', 'enable-disable'],
             })),
-            listItems: vi.fn(() => [
-              {
-                id: 1,
-                code: 'system:dictionary:manage',
-                name: '字典管理',
-                groupKey: 'resource',
-                description: '维护系统字典',
-                isEnabled: true,
-                createdAt: '2026-05-28T00:00:00.000Z',
-                updatedAt: '2026-05-28T00:00:00.000Z',
-              },
-            ]),
+            queryItems,
+            listItems,
             getItem: vi.fn(() => ({
               id: 1,
               code: 'system:dictionary:manage',
@@ -56,6 +49,13 @@ describe('PermissionController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        transformOptions: { enableImplicitConversion: true },
+      }),
+    );
     await app.init();
   });
 
@@ -74,26 +74,26 @@ describe('PermissionController (e2e)', () => {
       });
   });
 
-  it('/system/permissions (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/system/permissions')
-      .query({ groupKey: 'resource', isEnabled: true })
+  it.each([
+    ['/system/permissions', queryItems],
+    ['/system/permissions/list', listItems],
+  ])('%s applies keyword, group and false status', async (path, handler) => {
+    await request(app.getHttpServer())
+      .get(path)
+      .query({ keyword: '字典', groupKey: 'resource', isEnabled: false })
       .expect(200)
       .expect({
         code: 200,
         message: 'ok',
-        data: [
-          {
-            id: 1,
-            code: 'system:dictionary:manage',
-            name: '字典管理',
-            groupKey: 'resource',
-            description: '维护系统字典',
-            isEnabled: true,
-            createdAt: '2026-05-28T00:00:00.000Z',
-            updatedAt: '2026-05-28T00:00:00.000Z',
-          },
-        ],
+        data: filteredPage,
       });
+    expect(handler).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        keyword: '字典',
+        groupKey: 'resource',
+        isEnabled: false,
+        pageSize: path.endsWith('/list') ? 10 : 200,
+      }),
+    );
   });
 });

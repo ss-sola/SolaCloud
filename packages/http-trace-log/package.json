@@ -1,0 +1,7 @@
+{
+  "name": "@solacloud/http-trace-log",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.cjs",
+  "types": "index.d.cts"
+}

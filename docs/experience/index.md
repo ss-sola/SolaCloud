@@ -7,3 +7,4 @@
 - [根级 ESLint 配置半迁移问题](./common/根级ESLint配置半迁移问题-2026-03-21.md)
 - [type-aware lint 下的字符串收窄问题](./common/type-aware-lint字符串收窄问题-2026-03-21.md)
 - [公共包新增编译文件未被业务服务加载](./common/公共包新增编译文件未被业务服务加载.md)
+- [独立工作目录导致 TypeORM 实体缺失](./common/独立工作目录导致TypeORM实体缺失.md)

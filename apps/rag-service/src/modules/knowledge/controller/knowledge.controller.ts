@@ -1,5 +1,5 @@
-import { BaseController, ContextService, ResponseUtil } from '@nest-cloud/sdk';
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { BaseController, ContextService, ResponseUtil, SessionAuthGuard } from '@nest-cloud/sdk';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { FileServiceClient } from '../../../client/file-service.client';
 import { CreateKnowledgeBaseForm, IngestAttachmentsForm } from '../form/knowledge.form';
 import { KnowledgeService } from '../service/knowledge.service';
@@ -7,6 +7,7 @@ import { KnowledgeDocument } from '../entity/knowledge-document.entity';
 import { KnowledgeBaseService } from '../service/knowledge-base.service';
 
 @Controller('knowledge')
+@UseGuards(SessionAuthGuard)
 export class KnowledgeController extends BaseController<KnowledgeDocument, KnowledgeService> {
   constructor(
     private readonly knowledgeService: KnowledgeService,

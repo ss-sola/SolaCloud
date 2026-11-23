@@ -1,5 +1,5 @@
 import { BaseService, getConfig, ProjectException } from '@nest-cloud/sdk';
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, FindOptionsWhere, ILike, In, Repository } from 'typeorm';
 import { PageResult } from '../../../utils/pagination.types';
@@ -287,11 +287,11 @@ export class AccountService extends BaseService<AccountItem> {
 
   async validateSession(payload?: AccountSessionPayload): Promise<AccountItem> {
     if (!payload?.accountId) {
-      throw new ProjectException('Account session not found');
+      throw new ProjectException('Account session not found', HttpStatus.UNAUTHORIZED);
     }
-    const account = await this.findAccount(payload.accountId);
-    if (!account.isEnabled || account.statusVersion !== payload.statusVersion) {
-      throw new ProjectException('Account session expired');
+    const account = await this.findOne(payload.accountId);
+    if (!account?.isEnabled || account.statusVersion !== payload.statusVersion) {
+      throw new ProjectException('Account session expired', HttpStatus.UNAUTHORIZED);
     }
     return account;
   }
