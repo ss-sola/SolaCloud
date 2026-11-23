@@ -50,7 +50,14 @@ export class TraceLogUtil {
         ]),
       ).toString('base64url');
       const level = entry.level ?? /^\[[^\r\n\]]+\]\s+([A-Z]+)\s/.exec(message)?.[1] ?? null;
-      return { ...entry, message, level, entryId };
+      // The detail endpoint still verifies the digest against the original preview.
+      const detail = /,"httpDetails":\{/.exec(message);
+      return {
+        ...entry,
+        message: detail ? message.slice(0, detail.index) + '}' : message,
+        level,
+        entryId,
+      };
     });
   }
 

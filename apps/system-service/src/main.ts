@@ -1,8 +1,11 @@
-import { bootstrap, getConfig } from '@nest-cloud/sdk';
+import { HttpTraceLog } from '@solacloud/http-trace-log';
+import { AppLogger, bootstrap, getConfig } from '@nest-cloud/sdk';
 import { isIP } from 'node:net';
 import { AppModule } from './app.module';
 import { SystemRequestLog } from './modules/trace-log/system-request-log.middleware';
 import { SystemServiceConfig } from './validate.config';
+
+HttpTraceLog.installSdkLogPolicy(AppLogger);
 
 void bootstrap({
   AppModule,
