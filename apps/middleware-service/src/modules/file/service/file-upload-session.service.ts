@@ -135,41 +135,77 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
 
   async mergeUpload(form: FileUploadMergeForm): Promise<FileUploadMergeRecord> {
     const fileId = form.fileId.trim();
-    const expectedFileHash = form.fileHash.trim().toLowerCase();
     const session = await this.getSessionOrThrow(fileId);
     if (session.status === FILE_UPLOAD_SESSION_STATUS.Completed) {
-      return this.toMergeRecord(fileId, session, await this.getMergedFileRecord(session));
+      return this.replayCompletedUpload(fileId, session);
     }
 
-    await this.ensureSessionAvailable(session);
-    const refreshed = await this.refreshSessionProgress(fileId, session);
-    const activeSession = refreshed.session;
-    if (activeSession.uploadedChunkCount < activeSession.chunkCount) {
-      throw new ProjectException('分片尚未上传完成', 400);
-    }
-
-    for (let chunkIndex = 0; chunkIndex < activeSession.chunkCount; chunkIndex += 1) {
-      const exists = await this.fileStorageService.hasChunk({
-        tempRootDir: this.getChunkTempRootDir(),
-        chunkDirPath: activeSession.chunkDirPath,
-        chunkIndex,
-      });
-      if (!exists) {
-        throw new ProjectException('存在缺失分片，无法合并', 400);
-      }
-    }
-
-    const acquired = await this.fileUploadRedisService.acquireMergeLock(fileId, 60_000);
-    if (!acquired) {
+    const lockToken = await this.fileUploadRedisService.acquireMergeLock(fileId, 60_000);
+    if (!lockToken) {
       throw new ProjectException('文件正在合并中', 400);
     }
 
+    try {
+      // Another request may have finished between reading the session and taking its lease.
+      const current = await this.repository.findOneByOrFail({ id: session.id });
+      if (current.status === FILE_UPLOAD_SESSION_STATUS.Completed) {
+        return await this.replayCompletedUpload(fileId, current);
+      }
+      await this.ensureSessionAvailable(current);
+      const snapshot = await this.buildChunkSnapshot(current);
+      if (snapshot.uploadedChunkCount < current.chunkCount) {
+        throw new ProjectException('分片尚未上传完成', 400);
+      }
+      const merging = {
+        status: FILE_UPLOAD_SESSION_STATUS.Merging,
+        errorMessage: null,
+        uploadedBytes: snapshot.uploadedBytes,
+        uploadedChunkCount: snapshot.uploadedChunkCount,
+      };
+      // The Redis lease may have expired during the disk scan.
+      const claim = await this.repository.update(
+        { id: current.id, status: current.status },
+        merging,
+      );
+      if (!claim.affected) {
+        const latest = await this.repository.findOneByOrFail({ id: current.id });
+        if (latest.status === FILE_UPLOAD_SESSION_STATUS.Completed) {
+          return await this.replayCompletedUpload(fileId, latest);
+        }
+        throw new ProjectException('上传会话状态已变更，请重试合并', 409);
+      }
+
+      const { saved, fileItem } = await this.completeUpload(
+        form,
+        Object.assign(current, merging),
+        snapshot.uploadedChunkIndexes,
+      );
+      await this.cleanupCompletedUpload(fileId, saved);
+      void this.notifyAttachmentDescription(fileItem);
+      return this.toMergeRecord(
+        fileId,
+        saved,
+        this.toFileRecord(fileItem),
+        snapshot.uploadedChunkIndexes,
+      );
+    } finally {
+      try {
+        await this.fileUploadRedisService.releaseMergeLock(fileId, lockToken);
+      } catch (error) {
+        this.logger.warn(`释放附件合并锁失败，等待租约到期 uploadId=${session.uploadId}: ${error}`);
+      }
+    }
+  }
+
+  private async completeUpload(
+    form: FileUploadMergeForm,
+    activeSession: FileUploadSession,
+    uploadedChunkIndexes: number[],
+  ) {
+    const fileId = form.fileId.trim();
     let mergedStoragePath: string | undefined;
     try {
-      activeSession.status = FILE_UPLOAD_SESSION_STATUS.Merging;
-      activeSession.errorMessage = null;
-      await this.repository.save(activeSession);
-      await this.syncRedisSnapshot(fileId, activeSession, refreshed.uploadedChunkIndexes);
+      await this.syncRedisSnapshot(fileId, activeSession, uploadedChunkIndexes);
 
       const mergedOriginalName = form.originalName.trim();
       const mergedMimeType =
@@ -188,7 +224,7 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
       mergedStoragePath = stored.storagePath;
 
       const actualFileHash = await this.calculateStorageHash(stored.storagePath);
-      if (actualFileHash !== expectedFileHash) {
+      if (actualFileHash !== form.fileHash.trim().toLowerCase()) {
         throw new ProjectException('文件哈希校验失败', 409);
       }
 
@@ -222,19 +258,7 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
       activeSession.errorMessage = null;
       activeSession.expiresAt = this.buildExpiresAt();
       const saved = await this.repository.save(activeSession);
-      await this.fileStorageService.removeChunkDir({
-        tempRootDir: this.getChunkTempRootDir(),
-        chunkDirPath: activeSession.chunkDirPath,
-      });
-      await this.fileUploadRedisService.deleteUpload(fileId);
-      // 异步通知 RAG 服务生成附件描述
-      void this.notifyAttachmentDescription(fileItem);
-      return this.toMergeRecord(
-        fileId,
-        saved,
-        this.toFileRecord(fileItem),
-        refreshed.uploadedChunkIndexes,
-      );
+      return { saved, fileItem };
     } catch (error) {
       if (mergedStoragePath) {
         await this.fileStorageService.removeStorage({
@@ -245,13 +269,33 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
       activeSession.status = FILE_UPLOAD_SESSION_STATUS.Failed;
       activeSession.errorMessage = error instanceof Error ? error.message : '文件合并失败';
       const saved = await this.repository.save(activeSession);
-      await this.syncRedisSnapshot(fileId, saved, refreshed.uploadedChunkIndexes);
+      await this.syncRedisSnapshot(fileId, saved, uploadedChunkIndexes);
       if (error instanceof ProjectException) {
         throw error;
       }
       throw new ProjectException('文件合并失败', 500);
-    } finally {
-      await this.fileUploadRedisService.releaseMergeLock(fileId);
+    }
+  }
+
+  private async replayCompletedUpload(fileId: string, session: FileUploadSession) {
+    const file = await this.getMergedFileRecord(session);
+    await this.cleanupCompletedUpload(fileId, session);
+    return this.toMergeRecord(fileId, session, file);
+  }
+
+  private async cleanupCompletedUpload(fileId: string, session: FileUploadSession) {
+    try {
+      await this.fileStorageService.removeChunkDir({
+        tempRootDir: this.getChunkTempRootDir(),
+        chunkDirPath: session.chunkDirPath,
+      });
+    } catch (error) {
+      this.logger.warn(`清理已完成附件的分片失败 uploadId=${session.uploadId}: ${error}`);
+    }
+    try {
+      await this.fileUploadRedisService.deleteUpload(fileId, session.uploadId);
+    } catch (error) {
+      this.logger.warn(`清理已完成附件的快照失败 uploadId=${session.uploadId}: ${error}`);
     }
   }
 
@@ -272,7 +316,7 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
           chunkDirPath: session.chunkDirPath,
         });
         if (session.fileFingerprint) {
-          await this.fileUploadRedisService.deleteUpload(session.fileFingerprint);
+          await this.fileUploadRedisService.deleteUpload(session.fileFingerprint, session.uploadId);
         }
         await this.delete(session.id);
         removed += 1;
@@ -322,7 +366,7 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
   }
 
   private async findActiveSession(fileId: string) {
-    const redisMeta = await this.fileUploadRedisService.getMeta(fileId);
+    const redisMeta = await this.readCachedMeta(fileId);
     if (redisMeta?.uploadId) {
       const redisSession = await this.repository.findOne({
         where: { uploadId: redisMeta.uploadId },
@@ -362,9 +406,16 @@ export class FileUploadSessionService extends BaseService<FileUploadSession> {
     }
   }
 
+  private readCachedMeta(fileId: string) {
+    return this.fileUploadRedisService.getMeta(fileId).catch((error) => {
+      this.logger.warn(`读取上传快照失败，从数据库查找会话: ${error}`);
+      return undefined;
+    });
+  }
+
   private async getSessionOrThrow(fileId: string) {
     const normalizedFileId = fileId.trim();
-    const redisMeta = await this.fileUploadRedisService.getMeta(normalizedFileId);
+    const redisMeta = await this.readCachedMeta(normalizedFileId);
     if (redisMeta?.uploadId) {
       const session = await this.repository.findOne({
         where: { uploadId: redisMeta.uploadId },
