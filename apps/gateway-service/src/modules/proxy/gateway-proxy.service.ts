@@ -1,5 +1,6 @@
 import { ContextService, getConfig, ResponseUtil } from '@nest-cloud/sdk';
 import { Injectable, Logger } from '@nestjs/common';
+import { HttpTraceLog } from '@solacloud/http-trace-log';
 import type { Request, Response } from 'express';
 import { request as httpRequest, type ClientRequest, type IncomingMessage } from 'node:http';
 import { request as httpsRequest } from 'node:https';
@@ -113,12 +114,17 @@ export class GatewayProxyService {
         durationMs: Date.now() - startedAtMs,
         traceId: trace.traceId,
         error,
+        callSpanId: trace.spanId,
+        parentSpanId: HttpTraceLog.parentSpanId(request),
+        httpDetails: {
+          requestHeaders: HttpTraceLog.headers(request.headers),
+          responseHeaders: HttpTraceLog.headers(response.getHeaders()),
+        },
       });
     };
 
     const reject = (status: number, reason: string, message: string) => {
       if (completed) return;
-      finish(reason, status);
       if (response.headersSent) {
         response.destroy();
       } else if (!response.destroyed) {
@@ -128,6 +134,7 @@ export class GatewayProxyService {
         }
         this.fail(response, status, message);
       }
+      finish(reason, status);
     };
 
     response.once('finish', () => finish());

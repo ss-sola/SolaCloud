@@ -10,7 +10,7 @@ const PREVIEW_STAGE = ' | line_format ' + JSON.stringify(PREVIEW_TEMPLATE);
 const GATEWAY_STAGE =
   ' |~ `^\\[[^\\]]+\\] [A-Z]+ +\\[traceId=[^\\]]+\\] \\[GatewayProxyService\\] `';
 const OUTCOME_STAGE =
-  ' |~ `^\\[[^\\]]+\\] [A-Z]+ +\\[traceId=[^\\]]+\\] \\[(SystemRequestLog|GlobalExceptionFilter)\\] `';
+  ' |~ `^\\[[^\\]]+\\] [A-Z]+ +\\[traceId=[^\\]]+\\] \\[(SystemRequestLog|ServiceRequestLog|GlobalExceptionFilter)\\] `';
 
 @Injectable()
 export class TraceLogService {

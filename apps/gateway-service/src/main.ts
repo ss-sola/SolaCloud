@@ -1,8 +1,11 @@
-import { bootstrap } from '@nest-cloud/sdk';
+import { HttpTraceLog } from '@solacloud/http-trace-log';
+import { AppLogger, bootstrap } from '@nest-cloud/sdk';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { GatewayProxyService } from './modules/proxy/gateway-proxy.service';
 import { GatewayConfig } from './validate.config';
+
+HttpTraceLog.installSdkLogPolicy(AppLogger);
 
 void bootstrap({
   AppModule,
