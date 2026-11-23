@@ -93,8 +93,10 @@ describe('NestCloudWeb app', () => {
     expect(await screen.findByRole('heading', { name: '后台配置管理台' })).toBeInTheDocument();
   });
 
-  it('logs in and lands on the first available system page', async () => {
+  it('opens the first available page after login and signs out through the account menu', async () => {
+    const signOut = vi.fn(() => createApiResponse(null));
     installFetchMock([
+      { method: 'POST', path: '/api/system/auth/logout', handle: signOut },
       {
         path: '/api/system/auth/current',
         handle: () => createApiError(),
@@ -189,6 +191,29 @@ describe('NestCloudWeb app', () => {
 
     expect(await screen.findByRole('button', { name: '新增命名空间' })).toBeInTheDocument();
     expect(await screen.findByText('统一前端基座')).toBeInTheDocument();
+    const themeSwitch = screen.getByRole('switch', { name: '深色主题', checked: false });
+    await user.click(themeSwitch);
+    expect(themeSwitch).toBeChecked();
+    expect(document.documentElement.dataset.bsTheme).toBe('dark');
+    await user.keyboard(' ');
+    expect(themeSwitch).not.toBeChecked();
+    expect(localStorage.getItem('theme')).toBe('light');
+
+    const accountMenu = screen.getByRole('button', { name: '管理员的账号菜单' });
+    expect(screen.queryByRole('button', { name: '登出' })).not.toBeInTheDocument();
+    await user.click(accountMenu);
+    await user.tab();
+    expect(screen.getByRole('button', { name: '登出' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(accountMenu).toHaveFocus();
+    expect(accountMenu).toHaveAttribute('aria-expanded', 'false');
+    await user.click(accountMenu);
+    await user.click(screen.getByRole('banner'));
+    expect(accountMenu).toHaveAttribute('aria-expanded', 'false');
+    await user.click(accountMenu);
+    await user.click(screen.getByRole('button', { name: '登出' }));
+    expect(signOut).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('heading', { name: '后台配置管理台' })).toBeVisible();
   });
 
   it('redirects /system to the first available menu page', async () => {
@@ -1161,7 +1186,8 @@ describe('NestCloudWeb app', () => {
 
     const view = await renderApp('/system/service-monitor');
 
-    expect(await screen.findByRole('heading', { name: '服务监控' })).toBeInTheDocument();
+    const main = await screen.findByRole('main');
+    expect(await within(main).findByRole('heading', { name: '服务监控' })).toBeInTheDocument();
     expect(await screen.findByText('Intel(R) Test CPU')).toBeInTheDocument();
     expect(await screen.findByText('nest-cloud-dev')).toBeInTheDocument();
     expect(

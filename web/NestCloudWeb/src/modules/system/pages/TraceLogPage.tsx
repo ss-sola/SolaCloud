@@ -2,7 +2,6 @@ import { useMutation } from '@tanstack/react-query';
 import { useState, type SubmitEvent } from 'react';
 import { TraceLogApi } from '../api/traceLogApi';
 import { TraceLogResults } from '../components/TraceLogResults';
-import styles from '../components/TraceLogResults.module.css';
 
 export function TraceLogPage() {
   const [traceId, setTraceId] = useState('');
@@ -43,7 +42,7 @@ export function TraceLogPage() {
             autoComplete="off"
           />
           <button
-            className={`btn btn-success flex-shrink-0 ${styles.queryButton}`}
+            className="btn btn-success flex-shrink-0"
             type="submit"
             disabled={query.isPending}
           >
