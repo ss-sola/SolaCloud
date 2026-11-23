@@ -7,28 +7,37 @@ describe('FileUploadRedisService', () => {
     hgetall: ReturnType<typeof vi.fn>;
     hkeys: ReturnType<typeof vi.fn>;
     pipeline: ReturnType<typeof vi.fn>;
-    del: ReturnType<typeof vi.fn>;
+    eval: ReturnType<typeof vi.fn>;
     set: ReturnType<typeof vi.fn>;
   };
-  let mockQueueService: { getConnection: ReturnType<typeof vi.fn> };
+  const duplicate = vi.fn();
 
   const createMockRedis = () => ({
     hgetall: vi.fn(),
     hkeys: vi.fn(),
     pipeline: vi.fn(),
-    del: vi.fn(),
+    eval: vi.fn(),
     set: vi.fn(),
   });
 
   beforeEach(() => {
     mockRedis = createMockRedis();
-    mockQueueService = {
-      getConnection: vi.fn().mockReturnValue(mockRedis),
+    duplicate.mockReset().mockReturnValue(mockRedis);
+    const mockQueueService = {
+      getConnection: vi.fn().mockReturnValue({ ...mockRedis, duplicate }),
     };
     service = new FileUploadRedisService(mockQueueService as never);
   });
 
   describe('getMeta', () => {
+    it('bounds request-side Redis commands independently from the BullMQ connection', () => {
+      expect(duplicate).toHaveBeenCalledWith({
+        commandTimeout: 2_000,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+      });
+    });
+
     it('should return undefined when no meta exists', async () => {
       mockRedis.hgetall.mockResolvedValue({});
       const result = await service.getMeta('file-1');
@@ -126,35 +135,41 @@ describe('FileUploadRedisService', () => {
   });
 
   describe('deleteUpload', () => {
-    it('should delete meta, chunks and lock keys', async () => {
-      await service.deleteUpload('file-1');
-      expect(mockRedis.del).toHaveBeenCalledWith(
+    it('cleans the snapshot only for its upload session', async () => {
+      await service.deleteUpload('file-1', 'upload-1');
+      expect(mockRedis.eval).toHaveBeenCalledWith(
+        expect.any(String),
+        2,
         expect.stringContaining('file:upload:meta:file-1'),
         expect.stringContaining('file:upload:chunks:file-1'),
-        expect.stringContaining('file:upload:lock:file-1'),
+        'upload-1',
       );
     });
   });
 
   describe('acquireMergeLock', () => {
-    it('should return true when lock acquired', async () => {
+    it('returns the token used to acquire the lease', async () => {
       mockRedis.set.mockResolvedValue('OK');
       const result = await service.acquireMergeLock('file-1', 5000);
-      expect(result).toBe(true);
+      expect(result).toEqual(expect.any(String));
+      expect(mockRedis.set).toHaveBeenCalledWith(expect.any(String), result, 'PX', 5000, 'NX');
     });
 
-    it('should return false when lock exists', async () => {
+    it('returns null when a lease already exists', async () => {
       mockRedis.set.mockResolvedValue(null);
       const result = await service.acquireMergeLock('file-1', 5000);
-      expect(result).toBe(false);
+      expect(result).toBeNull();
     });
   });
 
   describe('releaseMergeLock', () => {
-    it('should delete the lock key', async () => {
-      await service.releaseMergeLock('file-1');
-      expect(mockRedis.del).toHaveBeenCalledWith(
+    it('releases only the acquired lease', async () => {
+      await service.releaseMergeLock('file-1', 'lease-token');
+      expect(mockRedis.eval).toHaveBeenCalledWith(
+        expect.any(String),
+        1,
         expect.stringContaining('file:upload:lock:file-1'),
+        'lease-token',
       );
     });
   });

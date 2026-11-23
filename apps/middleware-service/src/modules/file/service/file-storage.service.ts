@@ -169,7 +169,7 @@ export class FileStorageService {
   async removeChunkDir(options: { tempRootDir?: string; chunkDirPath: string }) {
     const tempRootDir = options.tempRootDir ?? DEFAULT_UPLOAD_CHUNK_TEMP_ROOT_DIR;
     const fullPath = FileUploadUtil.resolveSafePath(tempRootDir, options.chunkDirPath);
-    await rm(fullPath, { recursive: true, force: true }).catch(() => undefined);
+    await rm(fullPath, { recursive: true, force: true });
   }
 
   private async appendChunk(
