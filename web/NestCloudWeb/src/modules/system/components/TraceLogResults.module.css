@@ -2,23 +2,7 @@
   min-width: 0;
 }
 
-:global([data-theme='abyss']) .queryButton,
-:global([data-theme='abyss']) .queryButton:hover,
-:global([data-theme='abyss']) .queryButton:active,
-:global([data-theme='abyss']) .queryButton:disabled {
-  color: var(--system-panel);
-}
-
 .diagram {
-  --wf-stage: #0d1219;
-  --wf-surface: #19212d;
-  --wf-raised: #202a38;
-  --wf-border: #344258;
-  --wf-rule: #263143;
-  --wf-text: #e4eaf3;
-  --wf-secondary: #abb8ca;
-  --wf-muted: #8493a8;
-  --wf-accent: #85afe8;
   --wf-mono: 'JetBrains Mono', Consolas, monospace;
   min-width: 0;
   overflow: clip;
@@ -108,12 +92,12 @@
   outline: none;
 }
 .node[data-status='succeeded'] {
-  --status-bg: #14301f;
-  --status-text: #b2ebc3;
+  --status-bg: var(--wf-success-bg);
+  --status-text: var(--wf-success);
 }
 .node[data-status='failed'] {
-  --status-bg: #3a1d24;
-  --status-text: #f8c1c8;
+  --status-bg: var(--wf-danger-bg);
+  --status-text: var(--wf-danger);
 }
 .nodeBox {
   fill: var(--wf-surface);

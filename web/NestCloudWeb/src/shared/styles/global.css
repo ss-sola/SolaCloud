@@ -1,4 +1,18 @@
 :root {
+  /* Shared with the trace diagram, which keeps its own dark canvas in both themes. */
+  --wf-stage: #0d1219;
+  --wf-surface: #19212d;
+  --wf-raised: #202a38;
+  --wf-border: #344258;
+  --wf-rule: #263143;
+  --wf-text: #e4eaf3;
+  --wf-secondary: #abb8ca;
+  --wf-muted: #8493a8;
+  --wf-accent: #85afe8;
+  --wf-success-bg: #14301f;
+  --wf-success: #b2ebc3;
+  --wf-danger-bg: #3a1d24;
+  --wf-danger: #f8c1c8;
   color-scheme: light;
   font-family:
     Inter,
@@ -17,9 +31,23 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-:root[data-theme='dark'],
-:root[data-theme='abyss'] {
+:root[data-theme='dark'] {
   color-scheme: dark;
+  --bs-body-bg: var(--wf-surface);
+  --bs-body-color: var(--wf-text);
+  --bs-secondary-color: var(--wf-secondary);
+  --bs-secondary-rgb: 171, 184, 202;
+  --bs-secondary-bg: var(--wf-raised);
+  --bs-tertiary-bg: var(--wf-stage);
+  --bs-border-color: var(--wf-border);
+  --bs-emphasis-color: var(--wf-text);
+  --bs-link-color: var(--wf-accent);
+  --bs-link-color-rgb: 133, 175, 232;
+  --bs-link-hover-color-rgb: 164, 200, 249;
+  --bs-success-text-emphasis: var(--wf-success);
+  --bs-success-bg-subtle: var(--wf-success-bg);
+  --bs-danger-text-emphasis: var(--wf-danger);
+  --bs-danger-bg-subtle: var(--wf-danger-bg);
 }
 
 * {
@@ -91,6 +119,10 @@ ul {
   flex: 1 1 auto !important;
   display: flex !important;
   flex-direction: column !important;
+}
+
+:root[data-theme='dark'] .menu-icon {
+  filter: brightness(0) invert(1);
 }
 
 .icon-picker-popover {
@@ -172,43 +204,22 @@ ul {
 }
 
 :root[data-theme='dark'] {
-  --rag-container-bg: #0b1120;
-  --rag-panel-bg: #1e293b;
-  --rag-border: rgba(148, 163, 184, 0.2);
-  --rag-input-border: #334155;
-  --rag-text-primary: #e2e8f0;
-  --rag-text-secondary: #94a3b8;
-  --rag-text-muted: #64748b;
-  --rag-text-placeholder: #475569;
-  --rag-surface: #1e293b;
-  --rag-hover: #334155;
-  --rag-primary: #3b82f6;
-  --rag-primary-rgb: 59, 130, 246;
-  --rag-code-bg: #0f172a;
-  --rag-user-bubble: #334155;
-  --rag-avatar-gradient-start: #3b82f6;
-  --rag-avatar-gradient-end: #2563eb;
-  --rag-danger: #f87171;
-  --rag-danger-hover: #ef4444;
-}
-
-:root[data-theme='abyss'] {
-  --rag-container-bg: #0a0a0a;
-  --rag-panel-bg: #141414;
-  --rag-border: rgba(255, 255, 255, 0.1);
-  --rag-input-border: #262626;
-  --rag-text-primary: #f5f5f5;
-  --rag-text-secondary: #a3a3a3;
-  --rag-text-muted: #737373;
-  --rag-text-placeholder: #525252;
-  --rag-surface: #141414;
-  --rag-hover: #262626;
-  --rag-primary: #f0f0f0;
-  --rag-primary-rgb: 240, 240, 240;
-  --rag-code-bg: #1a1a1a;
-  --rag-user-bubble: #262626;
-  --rag-avatar-gradient-start: #f0f0f0;
-  --rag-avatar-gradient-end: #d4d4d4;
-  --rag-danger: #f87171;
-  --rag-danger-hover: #ef4444;
+  --rag-container-bg: var(--wf-stage);
+  --rag-panel-bg: var(--wf-surface);
+  --rag-border: var(--wf-border);
+  --rag-input-border: var(--wf-border);
+  --rag-text-primary: var(--wf-text);
+  --rag-text-secondary: var(--wf-secondary);
+  --rag-text-muted: var(--wf-muted);
+  --rag-text-placeholder: var(--wf-muted);
+  --rag-surface: var(--wf-raised);
+  --rag-hover: var(--wf-rule);
+  --rag-primary: var(--wf-accent);
+  --rag-primary-rgb: var(--bs-link-color-rgb);
+  --rag-code-bg: var(--wf-stage);
+  --rag-user-bubble: var(--wf-rule);
+  --rag-avatar-gradient-start: #435f86;
+  --rag-avatar-gradient-end: var(--wf-border);
+  --rag-danger: var(--wf-danger);
+  --rag-danger-hover: #ff8e9c;
 }

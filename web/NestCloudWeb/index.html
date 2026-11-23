@@ -1,16 +1,22 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light" data-bs-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NestCloudWeb</title>
     <meta name="description" content="NestCloudWeb 是 Nest Cloud 的统一前端基座" />
     <script>
-      (function() {
+      (function () {
         try {
-          var t = localStorage.getItem('theme') || 'light';
-          document.documentElement.setAttribute('data-theme', t);
-        } catch(e) {}
+          var saved = localStorage.getItem('theme');
+          if (saved === 'dark' || saved === 'abyss') {
+            document.documentElement.dataset.theme = 'dark';
+            document.documentElement.dataset.bsTheme = 'dark';
+            if (saved === 'abyss') localStorage.setItem('theme', 'dark');
+          }
+        } catch {
+          // The theme can still be changed when browser storage is unavailable.
+        }
       })();
     </script>
   </head>

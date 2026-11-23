@@ -61,7 +61,7 @@ export type RouteRoot = 'system' | 'rag';
 export interface AppRouteMeta {
   /** 页面标题，用于 topbar 展示 */
   title: string;
-  /** 页面描述，用于 topbar 副标题展示 */
+  /** 页面描述，作为共享页面框架的初始说明 */
   description: string;
   /** 是否需要登录才能访问，前端路由守卫依据此字段判断 */
   requiresAuth: boolean;

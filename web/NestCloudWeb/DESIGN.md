@@ -5,14 +5,14 @@ description: |
   A unified admin interface built on Bootstrap 5.2.3 with a green-accented design system.
   Custom CSS overrides layer on top of Bootstrap defaults to establish the brand palette,
   spacing, and component styling. The layout uses a two-zone sidebar (green-gradient brand
-  card + light navigation), frosted-glass topbar, parchment canvas background, and rounded
+  card + light navigation), fixed single-row header, parchment canvas background, and rounded
   utility cards. The single brand accent is a fresh green (#22a06b) used for primary actions,
   active nav items, and status indicators.
 ---
 
 ## Overview
 
-NestCloud Web 是一个统一的后台管理前端，基于 **Bootstrap 5.2.3**，在其之上叠加了 **绿色强调色系统**。核心视觉区域包括：**品牌侧边栏**（绿色渐变品牌卡 + 浅色导航）、**磨砂玻璃顶栏**、**浅色内容画布**（Parchment 背景）和 **圆角内容卡片**。
+NestCloud Web 是一个统一的后台管理前端，基于 **Bootstrap 5.2.3**，在其之上叠加了 **绿色强调色系统**。核心视觉区域包括：**品牌侧边栏**（绿色渐变品牌卡 + 浅色导航）、**单行固定顶栏**、**浅色内容画布**（Parchment 背景）和 **圆角内容卡片**。
 
 整体风格是 **清爽的现代管理界面**：绿色渐变侧边栏建立品牌识别，浅色内容区承载数据表格和表单，组件使用柔和的圆角和阴影营造层次感。
 
@@ -22,9 +22,9 @@ NestCloud Web 是一个统一的后台管理前端，基于 **Bootstrap 5.2.3**�
 - **Bootstrap 5.2.3 为基础**，通过自定义 CSS 覆盖默认样式（按钮、输入框、模态框、分页器等）
 - **绿色渐变品牌侧边栏** (`linear-gradient(160deg, #1f9d63, #2f855a)`) 带有装饰性椭圆伪元素
 - **Parchment 背景** (`#edf2f7`) 作为全局底色，内容卡片为纯白 `#ffffff`
-- **圆角语法**：sm=8px（按钮/输入框）、md=11px（导航项）、lg=16px（顶栏）、xxxl=22px（页面卡片）、pill=9999px（标签/搜索框）
+- **圆角语法**：sm=8px（按钮/输入框）、md=11px（导航项）、lg=16px（加载面板）、xxxl=22px（页面卡片）、pill=9999px（标签/搜索框）
 - **字体**：Inter + PingFang SC + Microsoft YaHei，body 17px，weight 400/600/700/800（无 500）
-- **顶栏磨砂玻璃**：`backdrop-filter: blur(8px)`，半透明白色背景
+- **单行顶栏**紧贴内容区上沿，使用主题面板底色和一条底部分隔线。
 - **柔和阴影**：卡片使用 `0 20px 48px rgba(15, 23, 42, 0.08)` 营造悬浮感
 
 ## Architecture Notes
@@ -59,6 +59,16 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 ---
 
 ## Colors
+
+以下品牌、表面与组件色值描述默认的浅绿主题。深色主题与集中日志流程图共用色板，通过主题变量切换，布局、字号与间距沿用同一套规范。
+
+| 深色用途 | 颜色 |
+| --- | --- |
+| 页面画布、强调按钮上的文字 | `#0d1219` |
+| 卡片、表单和弹窗 | `#19212d` |
+| 抬高的表面、分隔边框 | `#202a38`、`#344258` |
+| 正文、次要说明 | `#e4eaf3`、`#abb8ca` |
+| 交互强调、选中底色 | `#85afe8`、`#263143` |
 
 ### Brand & Accent
 
@@ -153,7 +163,6 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 | Flat          | 无边框、无阴影                       | 全局背景、侧边栏品牌区           |
 | Soft shadow   | `0 20px 48px rgba(15, 23, 42, 0.08)` | 页面卡片、登录面板               |
 | Hairline      | 1px `rgba(15, 23, 42, 0.08)`         | 输入框边框、卡片边框、表格分隔线 |
-| Backdrop blur | `backdrop-filter: blur(8px)`         | 顶栏磨砂玻璃效果                 |
 | Brand shadow  | 品牌区白色椭圆伪元素装饰             | 侧边栏品牌区视觉层次             |
 
 ---
@@ -168,7 +177,7 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 | xs    | 5px    | 树形控件切换按钮       |
 | sm    | 8px    | 按钮、输入框、分页按钮 |
 | md    | 11px   | 导航项、Toast          |
-| lg    | 16px   | 顶栏、加载面板         |
+| lg    | 16px   | 加载面板               |
 | xl    | 18px   | 指标卡片               |
 | xxl   | 20px   | 登录面板               |
 | xxxl  | 22px   | 页面内容卡片           |
@@ -201,9 +210,9 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 **`topbar`** — 页面顶栏
 
-- 半透明白色背景 `rgba(255, 255, 255, 0.86)`，磨砂玻璃 `blur(8px)`。
-- 16px 圆角，`0 12px 28px rgba(15, 23, 42, 0.06)` 阴影。
-- 14px × 18px padding，标题 20px weight 700。
+- 顶栏固定在滚动区域上方，以不透明面板底色、直角和 1px 底边分隔正文。
+- 桌面顶栏高 58px，标题在左，日月主题开关、头像菜单在右。登出放在头像菜单内。
+- 960px 及以下使用 54px 顶栏，540px 及以下收起账号名。标题过长时显示省略号。
 
 ### Buttons
 
@@ -335,7 +344,7 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 - 侧边栏品牌区使用绿色渐变 + 白色椭圆装饰伪元素。
 - 页面卡片使用 22px 大圆角 + 柔和阴影。
 - 按钮使用 8px 圆角，pill 形状仅用于标签和搜索框。
-- 顶栏使用磨砂玻璃效果。
+- 顶栏贴合内容区的顶部和两侧，正文独立滚动。
 - 表格行 hover 使用浅绿色 `#dff3ea` 高亮。
 - 使用 Bootstrap 的 grid/utility 类做布局，自定义 CSS 覆盖组件样式。
 
@@ -356,7 +365,6 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 - 移动端侧边栏折叠后的抽屉式导航未详细设计。
 - 表单验证错误状态的视觉规范未完整定义。
-- 暗黑模式不在当前设计系统范围内。
 - 空状态（empty state）的插画和文案规范未定义。
 - 拖拽排序、虚拟滚动等高级交互未覆盖。
 - 按钮的 pressed/hover 态仍部分依赖 Bootstrap 默认值，尚未完全自定义覆盖。

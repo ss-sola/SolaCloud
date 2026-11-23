@@ -10,7 +10,7 @@ export function AudioViewer({ url, fileName }: AudioViewerProps) {
       style={{ minHeight: '300px' }}
     >
       <div className="mb-4 text-center">
-        <i className="bi bi-music-note-beamed" style={{ fontSize: '4rem', color: '#6c757d' }} />
+        <i className="bi bi-music-note-beamed text-secondary" style={{ fontSize: '4rem' }} />
         <div className="mt-3 text-muted">{fileName}</div>
       </div>
       <audio src={url} controls className="w-100" style={{ maxWidth: '500px' }}>

@@ -768,7 +768,14 @@ export function MenuRoutePage() {
                         </td>
                         <td className="text-nowrap text-truncate" title={item.icon || undefined}>
                           {item.icon && iconUrl ? (
-                            <img src={iconUrl} alt="" width={20} height={20} title={item.icon} />
+                            <img
+                              className="menu-icon"
+                              src={iconUrl}
+                              alt=""
+                              width={20}
+                              height={20}
+                              title={item.icon}
+                            />
                           ) : (
                             '-'
                           )}
@@ -975,14 +982,15 @@ export function MenuRoutePage() {
                   height: 48,
                   padding: 0,
                   borderRadius: 8,
-                  border: '2px solid #dee2e6',
+                  border: '2px solid var(--bs-border-color)',
                 }}
+                aria-label="选择菜单图标"
                 aria-expanded={iconPickerOpen}
                 aria-haspopup="listbox"
                 onClick={() => setIconPickerOpen((v) => !v)}
               >
                 {formIconUrl ? (
-                  <img src={formIconUrl} alt="" width={24} height={24} />
+                  <img className="menu-icon" src={formIconUrl} alt="" width={24} height={24} />
                 ) : (
                   <span className="text-secondary" style={{ fontSize: 22, lineHeight: 1 }}>
                     ＋
@@ -1012,7 +1020,9 @@ export function MenuRoutePage() {
                               setIconPickerOpen(false);
                             }}
                           >
-                            {url ? <img src={url} alt={key} width={28} height={28} /> : null}
+                            {url ? (
+                              <img className="menu-icon" src={url} alt={key} width={28} height={28} />
+                            ) : null}
                           </button>
                         );
                       })}

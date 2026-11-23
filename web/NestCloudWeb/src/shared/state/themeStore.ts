@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export const THEMES = ['light', 'dark', 'abyss'] as const;
+export const THEMES = ['light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
 interface ThemeState {
@@ -9,25 +9,14 @@ interface ThemeState {
   setTheme: (theme: Theme) => void;
 }
 
-function resolveInitialTheme(): Theme {
-  try {
-    const stored = localStorage.getItem('theme');
-    if (stored && THEMES.includes(stored as Theme)) {
-      return stored as Theme;
-    }
-  } catch {
-    // localStorage unavailable
-  }
-  return 'light';
-}
-
 function applyTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.bsTheme = theme;
 }
 
 export const useThemeStore = create<ThemeState>((set) => {
-  const initial = resolveInitialTheme();
-  applyTheme(initial);
+  // index.html resolves the saved preference before the first paint.
+  const initial = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 
   return {
     theme: initial,
