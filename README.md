@@ -4,16 +4,18 @@ SolaCloud 将网关、系统管理、文件与任务和知识库服务组织在�
 
 | 子项目                    | 功能                               | 开发命令                |
 | ------------------------- | ---------------------------------- | ----------------------- |
-| `apps/gateway-service`    | 浏览器直连的 API 网关与服务发现   | `pnpm start:gateway`    |
+| `apps/gateway-service`    | 浏览器直连的 API 网关与服务发现    | `pnpm start:gateway`    |
 | `apps/system-service`     | 登录、权限、账号、菜单、字典和监控 | `pnpm start:system`     |
 | `apps/middleware-service` | 文件上传、下载和异步任务           | `pnpm start:middleware` |
 | `apps/rag-service`        | 知识库、向量检索和聊天             | `pnpm start:rag`        |
-| `apps/call-graph-service` | 项目接口静态分析和运行时方法探针 | `pnpm start:call-graph` |
+| `apps/call-graph-service` | 项目接口静态分析和运行时方法探针   | `pnpm start:call-graph` |
 | `web/NestCloudWeb`        | 业务管理前端                       | `pnpm start:web`        |
 
 接口调用图服务默认使用端口 3500，复用共享登录会话，部署在可信目标项目所在主机。现有系统库需安装接口调用图菜单补丁。[部署与使用](apps/call-graph-service/docs/接口调用图/部署与使用.md)
 
 ## 本地开发
+
+在本仓库根目录运行 `pnpm run docker:build` 可构建五个后端服务和管理前端的 Linux 镜像。构建使用同级目录的 NestCloud-Sdk。注册中心在 NestCloud 仓库独立打包。单独打包、镜像标签和运行配置见[Docker 打包说明](docs/project/部署与可观测性.md#docker-镜像)。
 
 将 `NestCloud-Sdk` 与 `SolaCloud` 放在同一父目录。使用 Node.js 24.16 或更高版本以及项目 `packageManager` 指定的 pnpm。在 SolaCloud 根目录执行以下命令。
 
@@ -33,7 +35,7 @@ SDK 以本地目录包安装。修改 SDK 后先重新构建，再在 SolaCloud 
 
 首次部署请在执行种子脚本的同一个 PostgreSQL 会话设置 `solacloud.initial_admin_password_hash`，值由 system-service 的 `PasswordUtil.hash` 生成。省略时管理员账号需要先配置密码才可登录。模型 API 密钥按部署环境配置。
 
-在各应用目录复制 `.env.example` 为 `.env`。给三个业务服务填写数据库凭据和共享会话配置。先启动 3001 端口上的 NestCloud，再启动三个业务服务（3200、3300、3400）和网关（3100）。使用 `http://localhost:5173` 访问管理前端，浏览器直接请求 `http://localhost:3100/api/...`。文件预览示例使用 `127.0.0.1:3300`。
+先启动 NestCloud。在其控制台按 [JSONC 模板](config-center/) 填写并发布五个服务的配置，包括数据库凭据和共享会话配置。在各应用目录复制 `.env.example` 为 `.env`，填写服务名、控制面地址和启用鉴权时所需的 Token。随后启动所需的后端和网关。使用 `http://localhost:5173` 访问管理前端，浏览器直接请求 `http://localhost:3100/api/...`。
 
 部署时通过 `VITE_GATEWAY_ORIGIN` 设置浏览器可访问的网关地址，并在网关的 `GatewayAllowedOrigins` 中配置前端来源。[前端 API 配置](web/NestCloudWeb/docs/api/模块总览.md)
 
