@@ -35,6 +35,9 @@ const OperationLogPage = lazy(async () => ({
 const TraceLogPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/TraceLogPage')).TraceLogPage,
 }));
+const ApiCallGraphPage = lazy(async () => ({
+  default: (await import('../../modules/system/pages/ApiCallGraphPage')).ApiCallGraphPage,
+}));
 const PermissionPage = lazy(async () => ({
   default: (await import('../../modules/system/pages/PermissionPage')).PermissionPage,
 }));
@@ -73,6 +76,8 @@ export interface AppRouteMeta {
   hideHeader?: boolean;
   /** 隐藏 info-strip 信息条 */
   hideInfoStrip?: boolean;
+  /** 将页面伸展至视口剩余空间，并在窄屏收起侧栏 */
+  viewportWorkspace?: boolean;
 }
 
 export interface AppRoute {
@@ -204,6 +209,19 @@ const appRoutes: AppRoute[] = [
       description: '按 traceId 查看网关和服务实例日志。',
       requiresAuth: true,
       permissions: ['system:trace-log:query'],
+      routeRoot: 'system',
+    },
+  },
+  {
+    name: 'api-call-graph',
+    path: '/system/api-call-graph',
+    component: ApiCallGraphPage,
+    meta: {
+      title: '接口调用图',
+      description: '浏览项目接口，查看方法调用关系和请求执行明细。',
+      viewportWorkspace: true,
+      requiresAuth: true,
+      permissions: ['system:call-graph:debug'],
       routeRoot: 'system',
     },
   },

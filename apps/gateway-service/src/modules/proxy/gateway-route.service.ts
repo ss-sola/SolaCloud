@@ -24,6 +24,9 @@ export class GatewayRouteService {
       )
         return undefined;
     }
+    if (method === 'GET' && path === '/api/call-graph/events') {
+      return { upstream: UPSTREAM.callGraph, streaming: true };
+    }
     if (verb === 'POST' && path === '/api/chat/send') {
       return { upstream: UPSTREAM.rag, streaming: true };
     }

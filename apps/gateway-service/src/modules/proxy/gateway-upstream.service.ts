@@ -47,8 +47,9 @@ export class GatewayUpstreamService {
       }
     });
     if (!targets.length) return undefined;
-    // File chunks and merged files are local to the single configured storage instance.
-    if (service === UPSTREAM.file && targets.length !== 1) return undefined;
+    // File chunks and active probe sessions belong to their respective host.
+    if ((service === UPSTREAM.file || service === UPSTREAM.callGraph) && targets.length !== 1)
+      return undefined;
     const index = (this.offsets.get(service) ?? 0) % targets.length;
     this.offsets.set(service, index + 1);
     return targets[index];

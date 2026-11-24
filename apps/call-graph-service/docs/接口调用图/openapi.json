@@ -1,0 +1,487 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SolaCloud 接口调用图",
+    "version": "1.0.0",
+    "description": "通过管理网关访问。需要 SolaCloud 登录会话和 system:call-graph:debug 权限。"
+  },
+  "paths": {
+    "/api/call-graph/scan": {
+      "post": {
+        "summary": "扫描项目接口",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project": {
+                    "type": "string",
+                    "description": "服务主机上已配置的项目绝对路径"
+                  }
+                },
+                "required": [
+                  "project"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "执行成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "说明"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "framework": {
+                          "type": "string",
+                          "enum": ["koa", "nestjs", "unknown"],
+                          "description": "扫描时选定的项目框架"
+                        },
+                        "entry": {
+                          "type": "string",
+                          "description": "项目内相对启动入口；可在构建完成前识别"
+                        },
+                        "routes": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Route"
+                          }
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "description": "扫描提示"
+                          }
+                        }
+                      },
+                      "required": [
+                        "framework",
+                        "routes",
+                        "warnings"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/call-graph/graph": {
+      "post": {
+        "summary": "解析接口静态调用图",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project": {
+                    "type": "string",
+                    "description": "服务主机上已配置的项目绝对路径"
+                  },
+                  "routeId": {
+                    "type": "string",
+                    "description": "扫描结果中的接口 ID"
+                  }
+                },
+                "required": [
+                  "project",
+                  "routeId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "执行成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "说明"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "nodes": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Method"
+                          }
+                        },
+                        "edges": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "type": "string",
+                                "description": "调用方 ID"
+                              },
+                              "to": {
+                                "type": "string",
+                                "description": "被调用方 ID"
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to"
+                            ]
+                          }
+                        },
+                        "roots": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "description": "入口方法 ID"
+                          }
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "description": "解析提示"
+                          }
+                        }
+                      },
+                      "required": [
+                        "nodes",
+                        "edges",
+                        "roots",
+                        "warnings"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/call-graph/start": {
+      "post": {
+        "summary": "启动目标项目的探针进程",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "project": {
+                    "type": "string",
+                    "description": "服务主机上已配置的项目绝对路径"
+                  },
+                  "routeId": {
+                    "type": "string",
+                    "description": "可选，兼容旧客户端的单接口采集"
+                  }
+                },
+                "required": [
+                  "project"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "执行成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "说明"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "sessionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "启动探针返回的会话 ID"
+                        }
+                      },
+                      "required": [
+                        "sessionId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "用项目目录启动，切换接口时复用同一进程和会话。旧客户端附带 routeId 时，仅采集该接口。"
+      }
+    },
+    "/api/call-graph/stop": {
+      "post": {
+        "summary": "停止当前账号的探针进程",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "启动探针返回的会话 ID"
+                  }
+                },
+                "required": [
+                  "sessionId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "执行成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "业务状态码"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "说明"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/call-graph/events": {
+      "get": {
+        "summary": "订阅和续读请求事件",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "启动探针返回的会话 ID"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "description": "已收到的最后序号，默认为 0",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "每行一个事件。warning 事件含 message，提示源码映射缺失等采集情况。活动会话发送完历史记录后写入一个空行，之后的事件属于实时流，后续空行用于保活。终止事件后关闭响应。",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "{\"type\":\"request\",\"requestId\":\"example-request\",\"routeId\":\"GET /items/:id\",\"method\":\"GET\",\"path\":\"/items/42\",\"startedAt\":1795435200000,\"seq\":3}\n"
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Method": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "源码位置标识"
+          },
+          "name": {
+            "type": "string",
+            "description": "方法显示名"
+          },
+          "anonymous": {
+            "type": "boolean",
+            "description": "由源码识别的匿名函数，画布自动折叠该节点"
+          },
+          "computationOnly": {
+            "type": "boolean",
+            "description": "所选接口的源码分析确认此方法及其已解析的调用均为同步内存计算。未知或者缺失时保留显示。"
+          },
+          "file": {
+            "type": "string",
+            "description": "项目相对路径"
+          },
+          "line": {
+            "type": "integer",
+            "description": "源码行号，从 1 开始"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file",
+          "line"
+        ]
+      },
+      "Route": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "接口 ID"
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP 方法或 ALL"
+          },
+          "path": {
+            "type": "string",
+            "description": "匹配路径模板"
+          },
+          "file": {
+            "type": "string",
+            "description": "路由声明相对文件"
+          },
+          "line": {
+            "type": "integer",
+            "description": "路由声明行号"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "path",
+          "file",
+          "line"
+        ]
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "失败，具体原因见 message 字段",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer",
+                  "description": "业务状态码"
+                },
+                "message": {
+                  "type": "string",
+                  "description": "说明"
+                },
+                "data": {
+                  "nullable": true
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "data"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

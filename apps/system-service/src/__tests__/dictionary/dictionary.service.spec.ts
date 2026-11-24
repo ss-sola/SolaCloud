@@ -834,6 +834,26 @@ describe('DictionaryService', () => {
     ).resolves.toEqual([]);
   });
 
+  it('keeps project probe limits editable as JSON numbers including zero', async () => {
+    const { service } = createService();
+    const namespace = 'system';
+    const aggregateKey = 'api_call_graph_probe';
+    const calls = { namespace, aggregateKey, key: 'maxCallsPerRequest' };
+    const snapshots = { namespace, aggregateKey, key: 'maxSnapshotValuesPerCall' };
+    const query = createItemsQuery({ namespace, aggregateKey });
+    await service.upsertItem(calls, { value: 0 });
+    await service.upsertItem(snapshots, { value: 1000 });
+    const values = async () =>
+      Object.fromEntries(
+        (await service.listRuntimeItems(query)).map((item) => [item.key, item.value]),
+      );
+    expect(await values()).toEqual({ maxCallsPerRequest: 0, maxSnapshotValuesPerCall: 1000 });
+
+    await service.upsertItem(calls, { value: 25 });
+    await service.upsertItem(snapshots, { value: 0 });
+    expect(await values()).toEqual({ maxCallsPerRequest: 25, maxSnapshotValuesPerCall: 0 });
+  });
+
   // --- listNamespaces ---
 
   it('should list namespaces with item count summaries', async () => {

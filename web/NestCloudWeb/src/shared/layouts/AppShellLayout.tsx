@@ -247,6 +247,7 @@ export function AppShellLayout() {
     <SystemPageFrameProvider initialState={initialFrameState}>
       <SystemPageFrame
         hideHeader={hideHeader}
+        viewportWorkspace={activeRouteMeta?.viewportWorkspace}
         toolbarRight={<TopbarActions />}
         sidebar={!hideAside && (
           <aside className="system-sidebar">

@@ -8,13 +8,26 @@ export const MIN_TRACE_ZOOM = 0.25;
 export const MAX_TRACE_ZOOM = 2;
 const DRAG_THRESHOLD = 5;
 
-export function useTraceDiagramCamera({ width, height }: { width: number; height: number }) {
+function frameAxis(available: number, extent: number, anchor: number, zoom: number) {
+  const space = available - extent * zoom;
+  if (space >= 0) return space / 2;
+  return Math.max(space, Math.min(0, available / 2 - anchor * zoom));
+}
+
+export function useTraceDiagramCamera(
+  { width, height }: { width: number; height: number },
+  entry?: Point,
+) {
   const viewport = useRef<HTMLDivElement>(null);
   const current = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
   const [camera, setCamera] = useState(current.current);
   const contacts = useRef(new Map<number, Contact>());
   const suppressClick = useRef(false);
   const dragging = useRef(false);
+  const framing = useRef<'initial' | 'fit' | 'manual'>('initial');
+  const previousEntry = useRef<Point | undefined>(undefined);
+  const entryX = entry?.x;
+  const entryY = entry?.y;
 
   function update(next: Camera) {
     current.current = next;
@@ -24,18 +37,52 @@ export function useTraceDiagramCamera({ width, height }: { width: number; height
   useLayoutEffect(() => {
     const area = viewport.current;
     if (!area) return;
-    update({ x: (area.clientWidth - width) / 2, y: 0, zoom: 1 });
-
     let previousWidth = area.clientWidth;
+    let previousHeight = area.clientHeight;
+    const prior = previousEntry.current;
+    const entryPoint =
+      entryX === undefined || entryY === undefined ? undefined : { x: entryX, y: entryY };
+    previousEntry.current = entryPoint;
+    function frame(view: HTMLDivElement) {
+      if (!entryPoint || !view.clientWidth || !view.clientHeight) return;
+      const fitZoom = Math.min(1, view.clientWidth / width, view.clientHeight / height);
+      // Large graphs open on the entry at a readable size. Explicit fit shows every node.
+      const zoom = framing.current === 'fit' ? fitZoom : Math.max(0.75, fitZoom);
+      update({
+        x: frameAxis(view.clientWidth, width, entryPoint.x, zoom),
+        y: frameAxis(view.clientHeight, height, entryPoint.y, zoom),
+        zoom,
+      });
+    }
+    if (!entryPoint) {
+      update({ x: (area.clientWidth - width) / 2, y: 0, zoom: 1 });
+    } else if (framing.current !== 'manual') {
+      frame(area);
+    } else if (prior && (prior.x !== entryPoint.x || prior.y !== entryPoint.y)) {
+      const previous = current.current;
+      update({
+        ...previous,
+        x: previous.x + (prior.x - entryPoint.x) * previous.zoom,
+        y: previous.y + (prior.y - entryPoint.y) * previous.zoom,
+      });
+    }
     const resize = new ResizeObserver(() => {
-      const difference = area.clientWidth - previousWidth;
+      const dx = area.clientWidth - previousWidth;
+      const dy = area.clientHeight - previousHeight;
       previousWidth = area.clientWidth;
-      if (difference) update({ ...current.current, x: current.current.x + difference / 2 });
+      previousHeight = area.clientHeight;
+      if (!dx && !dy) return;
+      if (entryPoint && framing.current !== 'manual') frame(area);
+      else if (dx || (entryPoint && dy)) {
+        const previous = current.current;
+        update({ ...previous, x: previous.x + dx / 2, y: previous.y + (entryPoint ? dy / 2 : 0) });
+      }
     });
     resize.observe(area);
 
     function wheel(event: WheelEvent) {
       event.preventDefault();
+      framing.current = 'manual';
       const area = event.currentTarget as HTMLDivElement;
       const rect = area.getBoundingClientRect();
       const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -49,11 +96,12 @@ export function useTraceDiagramCamera({ width, height }: { width: number; height
       resize.disconnect();
       area.removeEventListener('wheel', wheel);
     };
-  }, [width, height]);
+  }, [width, height, entryX, entryY]);
 
   function fit() {
     const area = viewport.current;
-    if (!area) return;
+    if (!area || !area.clientWidth || !area.clientHeight) return;
+    framing.current = 'fit';
     const zoom = Math.min(1, area.clientWidth / width, area.clientHeight / height);
     update({
       x: (area.clientWidth - width * zoom) / 2,
@@ -65,13 +113,27 @@ export function useTraceDiagramCamera({ width, height }: { width: number; height
   function zoomFromCenter(value: number) {
     const area = viewport.current;
     if (!area) return;
+    framing.current = 'manual';
     const center = { x: area.clientWidth / 2, y: area.clientHeight / 2 };
     update(scaleCamera(current.current, value, center, center));
   }
 
   function panBy(x: number, y: number) {
+    framing.current = 'manual';
     const before = current.current;
     update({ ...before, x: before.x + x, y: before.y + y });
+  }
+
+  function centerOn(x: number, y: number) {
+    const area = viewport.current;
+    if (!area) return;
+    framing.current = 'manual';
+    const zoom = current.current.zoom < 0.85 ? 1 : current.current.zoom;
+    update({
+      x: area.clientWidth / 2 - x * zoom,
+      y: area.clientHeight / 2 - y * zoom,
+      zoom,
+    });
   }
 
   function localPoint(event: PointerEvent<HTMLDivElement>): Point {
@@ -80,6 +142,7 @@ export function useTraceDiagramCamera({ width, height }: { width: number; height
   }
 
   function beginDrag(area: HTMLDivElement) {
+    framing.current = 'manual';
     dragging.current = true;
     suppressClick.current = true;
     area.dataset.panning = 'true';
@@ -130,6 +193,7 @@ export function useTraceDiagramCamera({ width, height }: { width: number; height
     fit,
     zoomFromCenter,
     panBy,
+    centerOn,
     suppressClick,
     pointerDown,
     pointerMove,

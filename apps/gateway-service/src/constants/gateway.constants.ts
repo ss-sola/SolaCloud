@@ -5,6 +5,7 @@ export const UPSTREAM = {
   system: 'system-service',
   file: 'middleware-service',
   rag: 'rag-service',
+  callGraph: 'call-graph-service',
 } as const;
 export type UpstreamName = (typeof UPSTREAM)[keyof typeof UPSTREAM];
 
@@ -15,6 +16,7 @@ export const GATEWAY_DEFAULTS = {
   systemUrl: 'http://127.0.0.1:3200',
   fileUrl: 'http://127.0.0.1:3300',
   ragUrl: 'http://127.0.0.1:3400',
+  callGraphUrl: 'http://127.0.0.1:3500',
   syncMs: 15_000,
   snapshotMs: 45_000,
   leaseMs: REGISTRY_LEASE_TIMEOUT_MS,

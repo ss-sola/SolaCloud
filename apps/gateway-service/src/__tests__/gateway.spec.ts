@@ -177,6 +177,21 @@ describe('gateway HTTP transport', () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
+  it('routes the call graph controls and preserves streaming for probe events', () => {
+    const routes = new GatewayRouteService();
+    for (const action of ['scan', 'graph', 'start', 'stop']) {
+      expect(routes.find('POST', '/api/call-graph/' + action, '')).toEqual({
+        upstream: UPSTREAM.callGraph,
+      });
+      expect(routes.find('GET', '/api/call-graph/' + action, '')).toBeUndefined();
+    }
+    expect(routes.find('GET', '/api/call-graph/events', 'sessionId=1')).toEqual({
+      upstream: UPSTREAM.callGraph,
+      streaming: true,
+    });
+    expect(routes.find('POST', '/api/call-graph/events', '')).toBeUndefined();
+  });
+
   it('exposes only the common runtime dictionary namespace through the gateway', async () => {
     const upstream = vi.fn<RequestListener>((_request, response) => response.end());
     const origin = await gateway(upstream);
@@ -224,6 +239,7 @@ describe('gateway upstream discovery', () => {
     expect(upstreams.select(UPSTREAM.system, now)?.address.origin).toBe('http://127.0.0.1:3200');
     expect(upstreams.select(UPSTREAM.system, now)?.address.origin).toBe('http://127.0.0.1:3220');
     expect(upstreams.select(UPSTREAM.file, now)).toBeUndefined();
+    expect(upstreams.select(UPSTREAM.callGraph, now)).toBeUndefined();
     expect(upstreams.isReady(now + 45_001)).toBe(false);
     expect(upstreams.select(UPSTREAM.system, now + 45_001)).toBeUndefined();
   });

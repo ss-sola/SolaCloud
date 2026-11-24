@@ -36,6 +36,9 @@ export class GatewayConfig extends CommonConfig {
   @IsUrl(httpUrl)
   GatewayRagUrl: string = GATEWAY_DEFAULTS.ragUrl;
 
+  @IsUrl(httpUrl)
+  GatewayCallGraphUrl: string = GATEWAY_DEFAULTS.callGraphUrl;
+
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -100,6 +103,9 @@ export class GatewayConfig extends CommonConfig {
     return {
       [UPSTREAM.system]: this.origin(getConfig<string>('GatewaySystemUrl')),
       [UPSTREAM.file]: this.origin(getConfig<string>('GatewayMiddlewareUrl')),
+      [UPSTREAM.callGraph]: this.origin(
+        getConfig<string>('GatewayCallGraphUrl', GATEWAY_DEFAULTS.callGraphUrl),
+      ),
       [UPSTREAM.rag]: this.origin(getConfig<string>('GatewayRagUrl')),
     };
   }

@@ -121,7 +121,10 @@ export const CHAT_ROUTES: RouteGroup = {
   DELETE: ['session'],
 };
 
+const CALL_GRAPH_ROUTES: RouteGroup = { POST: ['scan', 'graph', 'start', 'stop'] };
+
 export const GATEWAY_ROUTE_GROUPS = [
+  { prefix: '/api/call-graph/', routes: CALL_GRAPH_ROUTES, upstream: UPSTREAM.callGraph },
   { prefix: '/api/system/', routes: SYSTEM_ROUTES, upstream: UPSTREAM.system },
   { prefix: '/api/file/', routes: FILE_ROUTES, upstream: UPSTREAM.file },
   { prefix: '/api/knowledge/', routes: KNOWLEDGE_ROUTES, upstream: UPSTREAM.rag },
