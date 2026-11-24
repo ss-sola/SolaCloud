@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "docker:build": "docker buildx bake --allow=fs.read=.. --file docker-bake.hcl --load",
     "start:call-graph": "pnpm --dir ./apps/call-graph-service start:dev",
     "test:call-graph": "pnpm --dir ./apps/call-graph-service test",
     "start:gateway": "pnpm --dir ./apps/gateway-service start:dev",

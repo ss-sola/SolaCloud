@@ -7,8 +7,7 @@ export class CallGraphConfig extends CommonConfig {
   override GlobalPrefix = 'api';
 
   @IsString()
-  @IsNotEmpty()
-  CallGraphProjectDirs!: string;
+  CallGraphProjectDirs = '';
 
   @IsString()
   @IsNotEmpty()
