@@ -17,6 +17,7 @@ import {
 import trace from './TraceLogResults.module.css';
 import styles from './ApiMethodDiagram.module.css';
 import canvas from './ApiMethodCanvas.module.css';
+import { ApiRequestDetails } from './ApiRequestDetails';
 import { isAnonymousMethod, projectMethodGraph } from '../utils/apiCallProjection';
 import { buildCallBranches, expandPathToMethod, httpEntryId } from '../utils/apiCallBranches';
 import { prepareCallConnectors } from '../utils/apiCallConnector';
@@ -101,7 +102,7 @@ export function ApiMethodDiagram({
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(() => new Set());
-  const [hideStatic, setHideStatic] = useState(false);
+  const [hideStatic, setHideStatic] = useState(true);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [pendingLocate, setPendingLocate] = useState<string>();
   const stage = useRef<HTMLDivElement>(null);
@@ -332,7 +333,7 @@ export function ApiMethodDiagram({
           aria-controls={definition + '-filters'}
           onClick={() => setFilterOpen(!filterOpen)}
         >
-          过滤方法{hideStatic || excluded.size ? '（' + filteredCount + '）' : ''}
+          过滤方法{filteredCount > 0 ? '（' + filteredCount + '）' : ''}
         </button>
         {collapsed.size > 0 && (
           <>
@@ -622,29 +623,13 @@ export function ApiMethodDiagram({
           />
         )}
         {selected?.id === httpEntryId && route && (
-          <section aria-label="入口详情" className={canvas.detailsPanel}>
-            <div className="d-flex align-items-start justify-content-between gap-3">
-              <div>
-                <h3 className="h6 mb-1">HTTP 入口</h3>
-                <code className="text-break">
-                  {route.method} {route.path}
-                </code>
-              </div>
-              <button type="button" className={canvas.close} onClick={closeDetails}>
-                关闭详情
-              </button>
-            </div>
-            <p className={canvas.noCalls}>
-              {entryStatus}
-              {request?.end &&
-                ' · HTTP ' + request.end.status + ' · ' + formatDuration(request.end.durationMs)}
-            </p>
-            {request && (
-              <code className="text-break">
-                {request.method} {request.path}
-              </code>
-            )}
-          </section>
+          <ApiRequestDetails
+            route={route}
+            request={request}
+            status={entryStatus}
+            interrupted={interrupted}
+            onClose={closeDetails}
+          />
         )}
         {selected && selected.id !== httpEntryId && (
           <MethodDetails

@@ -4,13 +4,15 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { graphBuilder } from './analyzer-graph.mjs';
+import { createAnalyzer } from './analyzer.mjs';
 import { collectNestRoutes } from './analyzer-nest.mjs';
 
-function fixture(t, sources) {
+function fixture(t, sources, env) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sola-nest-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const source = path.join(root, 'src');
   fs.mkdirSync(source);
+  if (env) fs.writeFileSync(path.join(root, '.env'), env);
   fs.writeFileSync(
     path.join(root, 'tsconfig.json'),
     JSON.stringify({ compilerOptions: { paths: { '@/*': ['./src/*'] } } }),
@@ -120,4 +122,72 @@ test('Nest follows static DynamicModule returns and method-specific global prefi
   });
   assert.deepEqual([...warnings], []);
   assert.deepEqual([...catalog.keys()].sort(), ['GET /system/state', 'POST /api/system/state']);
+});
+
+test('a custom launcher discovers decorated controllers alongside explicit modules and local barrel imports', (t) => {
+  const project = fixture(
+    t,
+    {
+      'main.ts': `import { launch } from 'custom-runtime'; import { App } from './app.js';
+      launch(App); throw Error('must not evaluate the application');`,
+      'app.ts': `import {Module} from '@nestjs/common'; import { Explicit } from './api.js';
+      @Module({controllers:[Explicit]}) export class App {}`,
+      'http.ts': `export { Controller as Endpoint, Get as Read } from '@nestjs/common';`,
+      'api.ts': `import * as HTTP from './http.js'; import {Store} from './store.js';
+      @HTTP.Endpoint('declared') export class Explicit { @HTTP.Read() one() { return 1 } }
+      @HTTP.Endpoint('found') export class Automatic {
+        constructor(private store: Store) {}
+        @HTTP.Read(':id') find() { return this.store.lookup() }
+      }`,
+      'store.ts': 'export class Store { lookup() { return 1 } }',
+      'decoy.ts': `import {Controller, Get} from 'unrelated-library';
+      @Controller('fake') export class Decoy { @Get() x(){return 1} }`,
+    },
+    'GlobalPrefix="tools/v2"\n',
+  );
+  const { root, catalog, syntax, program, warnings } = project;
+  assert.equal(createAnalyzer(root).framework, 'nestjs');
+  assert.deepEqual([...catalog.keys()].sort(), [
+    'GET /tools/v2/declared',
+    'GET /tools/v2/found/:id',
+  ]);
+  const graph = graphBuilder(
+    root,
+    syntax,
+    catalog,
+    program,
+  )(catalog.get('GET /tools/v2/found/:id'));
+  assert.ok(
+    graph.roots.some((id) => graph.nodes.find((n) => n.id === id)?.name === 'Automatic.find'),
+  );
+  assert.ok(graph.nodes.some((n) => n.name === 'Store.lookup'));
+  assert.ok([...warnings].some((w) => w.includes('1 个控制器')));
+});
+
+test('unknown dynamic registrations supplement known controllers without assuming an application or a prefix', (t) => {
+  const { catalog, warnings } = fixture(
+    t,
+    {
+      'main.ts': `import {NestFactory} from '@nestjs/core'; import {Module, Controller, Get} from '@nestjs/common';
+      @Controller('one') class One { @Get() read(){return 1} }
+      @Controller('two') class Two { @Get() read(){return 2} }
+      @Module({controllers:[One, ...getControllers()]}) class App {}
+      const app = await NestFactory.create(App); app.setGlobalPrefix(process.env.MY_ROUTES);`,
+    },
+    'MY_ROUTES=internal\nGlobalPrefix=unused\n',
+  );
+  assert.deepEqual([...catalog.keys()].sort(), ['GET /internal/one', 'GET /internal/two']);
+  assert.ok([...warnings].some((w) => w.includes('动态控制器列表')));
+});
+
+test('controller discovery also finds unlisted declarations when the bootstrap and other registrations are explicit', (t) => {
+  const { catalog, warnings } = fixture(t, {
+    'main.ts': `import { NestFactory } from '@nestjs/core'; import {Module, Controller, Get} from '@nestjs/common';
+      @Controller('explicit') class First { @Get() one(){return 1} }
+      @Controller('second') export class Another { @Get() two(){return 2} }
+      @Module({controllers:[First]}) class App {}
+      const app = await NestFactory.create(App); loadMoreControllers(app);`,
+  });
+  assert.deepEqual([...catalog.keys()].sort(), ['GET /explicit', 'GET /second']);
+  assert.ok([...warnings].some((w) => w.includes('Another')));
 });

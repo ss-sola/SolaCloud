@@ -8,10 +8,6 @@ export class CallGraphConfig extends CommonConfig {
 
   @IsString()
   @IsNotEmpty()
-  CallGraphProjectDirs!: string;
-
-  @IsString()
-  @IsNotEmpty()
   SessionSecret!: string;
 
   @IsOptional()

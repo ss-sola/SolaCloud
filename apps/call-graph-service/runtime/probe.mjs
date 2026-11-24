@@ -11,6 +11,8 @@ import { installSourceHook } from './probe-source.mjs';
 import { installNestSourceHook } from './probe-nest-source.mjs';
 import { SNAPSHOT_VALUES_PER_CALL, isKoaContext, koaBody, snapshot } from './probe-snapshot.mjs';
 import { createRouteMatcher, matchRouteRoot } from './probe-routes.mjs';
+import { observeHttpRequest, requestPath } from './probe-http-request.mjs';
+import { observeHttpResponse } from './probe-http-response.mjs';
 
 const LIMIT = { args: 20, requests: 12 };
 const EVENTS_PER_PACKET = 32;
@@ -52,9 +54,13 @@ function projectSender() {
   };
 }
 
-function capture(value, budget, field) {
+function capture(value, budget, field, trace) {
   try {
-    return snapshot(value, budget, field);
+    return trace.httpRequest.protectArgument(
+      value,
+      snapshot(value, budget, field),
+      trace.displayPath === trace.pathname ? undefined : trace.displayPath,
+    );
   } catch {
     return '[无法快照]';
   }
@@ -63,13 +69,16 @@ function capture(value, budget, field) {
 function announce(trace, route, send) {
   if (trace.route) return;
   trace.route = route;
+  trace.displayPath = requestPath(trace.pathname, route.path);
   send({
     type: 'request',
     requestId: trace.id,
     routeId: route.id,
     method: trace.method,
-    path: trace.pathname,
+    path: trace.displayPath,
     startedAt: trace.startedAt,
+    requestHeaders: trace.httpRequest.requestHeaders,
+    parameters: trace.httpRequest.initial,
   });
 }
 
@@ -82,6 +91,7 @@ function createObserver(send, legacy, limits) {
     if (!parent || parent.trace.closed) return execute(...locals);
     const { trace } = parent;
     if (!parent.inHandler) {
+      trace.httpRequest.rememberContext(args[0]);
       if (trace.route) {
         if (!(legacy && !trace.route.roots.size) && !trace.route.roots.has(meta.id))
           return execute(...locals);
@@ -96,6 +106,14 @@ function createObserver(send, legacy, limits) {
         const route = matchRouteRoot(trace.candidates, meta.id, matched || undefined);
         if (!route) return execute(...locals);
         announce(trace, route, send);
+      }
+      if (!trace.sentParameters) {
+        trace.sentParameters = true;
+        send({
+          type: 'requestParams',
+          requestId: trace.id,
+          parameters: trace.httpRequest.readParameters(),
+        });
       }
     }
     if (trace.count >= callLimit) {
@@ -113,7 +131,7 @@ function createObserver(send, legacy, limits) {
       const name =
         (meta.rest && i >= meta.params.length - 1 ? meta.params.at(-1) : meta.params[i]) ??
         '#' + (i + 1);
-      values.push({ name, value: capture(args[i], budget, name) });
+      values.push({ name, value: capture(args[i], budget, name, trace) });
     }
     if (args.length > LIMIT.args) values.push({ name: '…', value: '[已截断]' });
     const node = {
@@ -136,14 +154,14 @@ function createObserver(send, legacy, limits) {
     function finish(state, value) {
       if (trace.closed) return;
       const durationMs = performance.now() - start;
-      let result = capture(value, budget, state === 'ok' ? meta.name : '');
+      let result = capture(value, budget, state === 'ok' ? meta.name : '', trace);
       // 微助教通过 ctx.body 返回响应，处理器通常仅返回 Promise<void>。
       if (state === 'ok' && value === undefined) {
         try {
           if (isKoaContext(args[0])) {
             result = {
               returnValue: result,
-              responseBody: capture(koaBody(args[0]), budget, ''),
+              responseBody: capture(koaBody(args[0]), budget, '', trace),
             };
           }
         } catch {
@@ -215,11 +233,19 @@ function install(routes, legacy, limits = {}, framework, entry) {
       if (active >= LIMIT.requests) return dispatch();
       const candidates = matchRequest(method, pathname);
       if (!candidates.length) return dispatch();
+      const snapshotLimit = limits.maxSnapshotValuesPerCall ?? SNAPSHOT_VALUES_PER_CALL;
+      let responseDetails;
+      try {
+        responseDetails = observeHttpResponse(req, res, snapshotLimit);
+      } catch {
+        /* preserve the target response */
+      }
       const trace = {
         id: randomUUID(),
         start: performance.now(),
         startedAt: Date.now(),
         candidates,
+        httpRequest: observeHttpRequest(req, snapshotLimit),
         nestRequest: framework === 'nestjs' ? req : undefined,
         method,
         pathname,
@@ -241,13 +267,23 @@ function install(routes, legacy, limits = {}, framework, entry) {
           active--;
           // Authentication or middleware may return before any root method runs.
           announce(trace, candidates[0], send);
+          let response;
+          try {
+            response = responseDetails?.();
+          } catch {
+            /* tracing must not fail a request */
+          }
           send({
             type: 'end',
             requestId: trace.id,
             status: res.writableFinished ? res.statusCode : 499,
             dropped: trace.dropped,
             durationMs,
+            parameters: trace.httpRequest.readParameters(),
+            ...response,
           });
+          trace.httpRequest = undefined;
+          trace.nestRequest = undefined;
         });
       }
       res.once('finish', end);

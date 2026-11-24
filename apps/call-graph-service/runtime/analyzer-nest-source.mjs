@@ -10,6 +10,8 @@ export function nestSource(program) {
   }
   function declaration(expr) {
     let sym = symbol(expr);
+    if (sym?.valueDeclaration && ts.isShorthandPropertyAssignment(sym.valueDeclaration))
+      sym = checker.getShorthandAssignmentValueSymbol(sym.valueDeclaration);
     if (sym?.flags & ts.SymbolFlags.Alias) sym = checker.getAliasedSymbol(sym);
     return sym?.valueDeclaration ?? sym?.declarations?.[0];
   }
@@ -44,7 +46,7 @@ export function nestSource(program) {
   function list(expr, onUnknown, seen = new Set()) {
     const node = value(expr);
     if (!node || !ts.isArrayLiteralExpression(node) || seen.has(node)) {
-      onUnknown(expr);
+      onUnknown?.(expr);
       return [];
     }
     const trail = new Set([...seen, node]);
@@ -84,13 +86,46 @@ export function nestSource(program) {
   function imported(expr, pkg) {
     const original = unwrapped(expr);
     if (!original) return;
+    // Follow project barrel exports. The static program intentionally excludes node_modules.
+    const seen = new Set();
+    function fromModule(specifier, name) {
+      if (specifier.text === pkg) return name;
+      const moduleSymbol = checker.getSymbolAtLocation(specifier);
+      const file = moduleSymbol?.valueDeclaration;
+      if (!file || !ts.isSourceFile(file)) return;
+      const key = file.fileName + '#' + name;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const exported = checker.getExportsOfModule(moduleSymbol).find((s) => s.name === name);
+      const binding = exported?.declarations?.[0];
+      if (binding) {
+        if (!ts.isExportSpecifier(binding)) return;
+        const source = binding.parent.parent.moduleSpecifier;
+        if (source) return fromModule(source, (binding.propertyName ?? binding.name).text);
+        const local = checker.getExportSpecifierLocalTargetSymbol(binding)?.declarations?.[0];
+        if (local && ts.isImportSpecifier(local))
+          return fromModule(
+            local.parent.parent.parent.moduleSpecifier,
+            (local.propertyName ?? local.name).text,
+          );
+        return;
+      }
+      for (const stmt of file.statements) {
+        if (!ts.isExportDeclaration(stmt) || stmt.exportClause || !stmt.moduleSpecifier) continue;
+        const result = fromModule(stmt.moduleSpecifier, name);
+        if (result) return result;
+      }
+    }
     if (ts.isPropertyAccessExpression(original)) {
       const ns = symbol(original.expression)?.declarations?.find(ts.isNamespaceImport);
-      if (ns?.parent.parent.moduleSpecifier.text === pkg) return original.name.text;
+      if (ns) return fromModule(ns.parent.parent.moduleSpecifier, original.name.text);
     }
     const binding = symbol(original)?.declarations?.find(ts.isImportSpecifier);
-    if (binding?.parent.parent.parent.moduleSpecifier.text === pkg)
-      return (binding.propertyName ?? binding.name).text;
+    if (binding)
+      return fromModule(
+        binding.parent.parent.parent.moduleSpecifier,
+        (binding.propertyName ?? binding.name).text,
+      );
   }
   function decorators(node) {
     return (ts.getDecorators(node) ?? []).flatMap((d) => {

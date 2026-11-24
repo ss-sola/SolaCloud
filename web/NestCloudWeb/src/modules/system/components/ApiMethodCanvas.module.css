@@ -169,6 +169,25 @@
   color: var(--wf-text);
   font: 0.76rem/1.5 var(--wf-mono);
 }
+.httpFields {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+.httpFields h4 {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.httpFields h5 {
+  margin: 0.4rem 0 0;
+  color: var(--wf-secondary);
+  font-size: 0.78rem;
+}
+.snapshotNote {
+  margin: 0.25rem 0 0;
+  color: var(--wf-muted);
+  font-size: 0.76rem;
+}
 
 @container (max-width: 640px) {
   .detailsPanel {

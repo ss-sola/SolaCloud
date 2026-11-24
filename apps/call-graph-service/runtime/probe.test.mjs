@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { observeHttpRequest } from './probe-http-request.mjs';
 
 const source = `
 import http from 'node:http';
@@ -76,6 +77,23 @@ async function startFixture(t, source, projectRoutes, limits) {
   return { address, child, events, route, until };
 }
 
+test('HTTP 参数采集不会执行请求对象上的访问器，二进制只显示类型', () => {
+  let invoked = 0;
+  const req = { url: '/demo', headers: {}, body: Buffer.from('private-bytes') };
+  Object.defineProperty(req, 'params', {
+    get() {
+      invoked++;
+      throw new Error('业务访问器');
+    },
+  });
+  const observed = observeHttpRequest(req, 1000);
+  const parameters = observed.readParameters();
+  assert.deepEqual(Object.keys(parameters.query), []);
+  assert.equal(Object.hasOwn(parameters, 'path'), false);
+  assert.equal(parameters.body, '[二进制数据]');
+  assert.equal(invoked, 0);
+});
+
 test('同一处理器被多个候选路由复用时按 Koa 实际匹配的模板归档', { timeout: 15000 }, async (t) => {
   const fixture = `
     import http from 'node:http';
@@ -113,6 +131,103 @@ test('同一处理器被多个候选路由复用时按 Koa 实际匹配的模板
   }
   assert.ok(!events.some((e) => e.requestId === requests[2].requestId && e.type === 'enter'));
 });
+
+test(
+  '采集入口参数的时序和保密性：中间件、早退、重复查询和有限额度',
+  { timeout: 15000 },
+  async (t) => {
+    const fixture = `
+    import http from 'node:http';
+    function first(ctx){ return true; }
+    function second(ctx){ return true; }
+    function noteMiddleware(ctx){}
+    http.createServer(async(req,res)=>{
+      const ctx={req,res,request:{},response:{}};
+      const parts=[];
+      for await(const chunk of req)parts.push(chunk);
+      const text=Buffer.concat(parts).toString();
+      const marker=req.headers['x-fixture'];
+      noteMiddleware(ctx);
+      // Simulate a completed parser, including native req.body as used by Express.
+      const parsed=marker==='raw'?text:JSON.parse(text);
+      if(marker==='early'){
+        req.params={id:'early'};
+        req.body=parsed;
+        return res.writeHead(401).end();
+      }
+      ctx.params={token:'private-path'};
+      ctx.request.body=parsed;
+      first(ctx);
+      // Middleware can change request objects after the actual input was captured.
+      ctx.request.body='changed';ctx.params={id:'changed'};second(ctx);
+      res.setHeader('Content-Type','application/json');res.end(JSON.stringify({length:text.length}));
+    }).listen(0,'127.0.0.1');`;
+    const routes = [
+      {
+        id: 'POST /demo/:token',
+        method: 'POST',
+        path: '/demo/:token',
+        roots: ['first', 'second'].map(
+          (n) => 'src/index.mts:' + fixture.indexOf('function ' + n + '('),
+        ),
+      },
+    ];
+    const { address, events, until } = await startFixture(t, fixture, routes, {
+      maxCallsPerRequest: 1,
+    });
+    const cases = [
+      { text: '{"password":"private-json","ok":0}', expected: { password: '[已遮蔽]', ok: 0 } },
+      { text: '"正常字符串"', expected: '正常字符串' },
+      { text: 'false', expected: false },
+      { text: 'null', expected: null },
+      { text: '0', expected: 0 },
+      {
+        text: '{"password":"private-raw"}',
+        mode: 'raw',
+        type: 'text/plain',
+        expected: '[原始文本请求体，已省略]',
+      },
+      { text: '{"key":"private-raw"}', mode: 'raw', expected: '[内嵌 JSON 文本，已省略]' },
+      { text: '{"value":7}', mode: 'early', expected: { value: 7 } },
+    ];
+    for (const [i, item] of cases.entries()) {
+      const response = await fetch(address + '/demo/private-path?tag=a&tag=b&token=private-query', {
+        method: 'POST',
+        headers: {
+          'content-type': item.type ?? 'application/json',
+          'x-fixture': item.mode ?? 'parsed',
+          authorization: 'Bearer private-header',
+          referer: 'http://example.test/?token=private-referer',
+        },
+        body: item.text,
+      });
+      const early = item.mode === 'early';
+      assert.equal(response.status, early ? 401 : 200);
+      if (!early) assert.equal((await response.json()).length, item.text.length);
+      await until(() => events.filter((e) => e.type === 'end').length === i + 1);
+      const start = events.filter((e) => e.type === 'request').at(-1);
+      const trace = events.filter((e) => e.requestId === start.requestId);
+      assert.equal(start.path, '/demo/:token');
+      assert.equal(start.requestHeaders.authorization, '[已遮蔽]');
+      assert.deepEqual(start.parameters, { query: { tag: ['a', 'b'], token: '[已遮蔽]' } });
+      const updates = trace.filter((e) => e.type === 'requestParams');
+      assert.equal(updates.length, early ? 0 : 1);
+      const params = {
+        ...start.parameters,
+        path: early ? { id: 'early' } : { token: '[已遮蔽]' },
+        body: item.expected,
+      };
+      if (!early) {
+        assert.equal(trace[1].type, 'requestParams');
+        assert.equal(trace[2].type, 'enter');
+        assert.deepEqual(updates[0].parameters, params);
+      }
+      assert.deepEqual(trace.at(-1).parameters, params);
+      assert.equal(trace.at(-1).dropped, early ? 0 : 1);
+      assert.doesNotMatch(JSON.stringify(trace), /private-(?:query|json|header|raw|referer|path)/);
+    }
+  },
+);
 
 test('追踪选定参数路由的进入、实际返回或异常，并隔离并发请求', { timeout: 15000 }, async (t) => {
   const { address, child, events, route, until } = await startFixture(t, source);

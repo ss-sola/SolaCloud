@@ -18,7 +18,7 @@
                 "properties": {
                   "project": {
                     "type": "string",
-                    "description": "服务主机上已配置的项目绝对路径"
+                    "description": "服务账号可读取的项目根目录绝对路径"
                   }
                 },
                 "required": [
@@ -104,7 +104,7 @@
                 "properties": {
                   "project": {
                     "type": "string",
-                    "description": "服务主机上已配置的项目绝对路径"
+                    "description": "服务账号可读取的项目根目录绝对路径"
                   },
                   "routeId": {
                     "type": "string",
@@ -214,7 +214,7 @@
                 "properties": {
                   "project": {
                     "type": "string",
-                    "description": "服务主机上已配置的项目绝对路径"
+                    "description": "服务账号可读取的项目根目录绝对路径"
                   },
                   "routeId": {
                     "type": "string",
@@ -366,13 +366,13 @@
         ],
         "responses": {
           "200": {
-            "description": "每行一个事件。warning 事件含 message，提示源码映射缺失等采集情况。活动会话发送完历史记录后写入一个空行，之后的事件属于实时流，后续空行用于保活。终止事件后关闭响应。",
+            "description": "每行一个事件。request 包含请求头和查询参数，requestParams 补充已解析的路径参数与请求体，end 返回实际响应头与正文。按 requestId 合并，旧事件可能缺少这些字段。warning 事件含 message，提示源码映射缺失等采集情况。活动会话发送完历史记录后写入一个空行，之后的事件属于实时流，后续空行用于保活。终止事件后关闭响应。",
             "content": {
               "application/x-ndjson": {
                 "schema": {
                   "type": "string"
                 },
-                "example": "{\"type\":\"request\",\"requestId\":\"example-request\",\"routeId\":\"GET /items/:id\",\"method\":\"GET\",\"path\":\"/items/42\",\"startedAt\":1795435200000,\"seq\":3}\n"
+                "example": "{\"type\":\"request\",\"requestId\":\"example-request\",\"routeId\":\"GET /items/:id\",\"method\":\"GET\",\"path\":\"/items/42\",\"startedAt\":1795435200000,\"requestHeaders\":{\"accept\":\"application/json\"},\"parameters\":{\"query\":{}},\"seq\":3}\n{\"type\":\"requestParams\",\"requestId\":\"example-request\",\"parameters\":{\"path\":{\"id\":\"42\"}},\"seq\":4}\n{\"type\":\"end\",\"requestId\":\"example-request\",\"status\":200,\"durationMs\":8,\"dropped\":0,\"responseHeaders\":{\"content-type\":\"application/json\"},\"responseBody\":{\"id\":42},\"seq\":5}\n"
               }
             }
           },

@@ -66,6 +66,8 @@ export function applyEvents(previous: Recording, events: AgentEvent[]): Recordin
       next.requests.set(event.requestId, request);
       touched.add(event.requestId);
     }
+    if ((event.type === 'requestParams' || event.type === 'end') && event.parameters)
+      request.parameters = { ...request.parameters, ...event.parameters };
     if (event.type === 'end') request.end = event;
     if (event.type === 'enter' && !request.calls.has(event.callId))
       request.calls.set(event.callId, event);

@@ -12,12 +12,6 @@ import { ProbeProcessService } from '../modules/call-graph/probe-process.service
 import { ProjectAnalysisService } from '../modules/call-graph/project-analysis.service';
 import { ProbeSession, type ProbeEvent } from '../modules/call-graph/probe-session';
 
-const config = vi.hoisted(() => ({ project: '' }));
-vi.mock('@nest-cloud/sdk', async (original) => ({
-  ...(await original<typeof import('@nest-cloud/sdk')>()),
-  getConfig: (key: string) => (key === 'CallGraphProjectDirs' ? config.project : undefined),
-}));
-
 class StreamRecorder extends EventEmitter {
   events: (ProbeEvent & { seq: number })[] = [];
   destroyed = false;
@@ -106,7 +100,6 @@ describe('接口调用图服务', () => {
 
   it('从控制器启动项目时使用字典额度，调用和快照按各自范围截断', async () => {
     const project = await mkdtemp(path.join(os.tmpdir(), 'call-graph-dictionary-'));
-    config.project = project;
     const analysis = new ProjectAnalysisService();
     const probes = new ProbeProcessService();
     const dictionary = new ProbeDictionaryClient();
@@ -152,7 +145,6 @@ describe('接口调用图服务', () => {
   it('仅凭目录准备项目入口，按需读取计算标记并兼容旧接口范围', async () => {
     const project = await mkdtemp(path.join(os.tmpdir(), 'call-graph-catalog-'));
     const analysis = new ProjectAnalysisService();
-    config.project = project;
     try {
       await createProject(project);
       await writeFile(
@@ -174,17 +166,21 @@ describe('接口调用图服务', () => {
     }
   });
 
-  it('限制可分析目录，扫描结果与子进程事件使用同一节点，并按账号控制启停和回放', async () => {
+  it('未登记的项目可直接扫描和启动，扫描结果与子进程事件使用同一节点，并按账号控制启停和回放', async () => {
     const project = await mkdtemp(path.join(os.tmpdir(), 'call-graph-service-'));
     const analysis = new ProjectAnalysisService();
     const probes = new ProbeProcessService();
     const owner = 17;
-    config.project = project;
     vi.stubEnv('PROBE_TEST_SECRET', 'unavailable-to-target');
     try {
       await createProject(project);
       await expect(analysis.scan('.')).rejects.toThrow('绝对目录');
-      await expect(analysis.scan(path.join(project, 'src'))).rejects.toThrow('未列入');
+      await expect(analysis.scan(path.join(project, 'missing'))).rejects.toThrow(
+        '可读取的项目目录',
+      );
+      await expect(analysis.scan(path.join(project, 'package.json'))).rejects.toThrow(
+        '可读取的项目目录',
+      );
       expect(() => analysis.graph(project, routeId)).toThrow('重新扫描');
       const catalog = await analysis.scan(project);
       expect(catalog).toMatchObject({ framework: 'koa', entry: 'src/index.ts' });
