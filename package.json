@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start:call-graph": "pnpm --dir ./apps/call-graph-service start:dev",
+    "test:call-graph": "pnpm --dir ./apps/call-graph-service test",
     "start:gateway": "pnpm --dir ./apps/gateway-service start:dev",
     "start:system": "pnpm --dir ./apps/system-service start:dev",
     "start:middleware": "pnpm --dir ./apps/middleware-service start:dev",

@@ -8,7 +8,10 @@ SolaCloud 将网关、系统管理、文件与任务和知识库服务组织在�
 | `apps/system-service`     | 登录、权限、账号、菜单、字典和监控 | `pnpm start:system`     |
 | `apps/middleware-service` | 文件上传、下载和异步任务           | `pnpm start:middleware` |
 | `apps/rag-service`        | 知识库、向量检索和聊天             | `pnpm start:rag`        |
+| `apps/call-graph-service` | 项目接口静态分析和运行时方法探针 | `pnpm start:call-graph` |
 | `web/NestCloudWeb`        | 业务管理前端                       | `pnpm start:web`        |
+
+接口调用图服务默认使用端口 3500，复用共享登录会话，部署在可信目标项目所在主机。现有系统库需安装接口调用图菜单补丁。[部署与使用](apps/call-graph-service/docs/接口调用图/部署与使用.md)
 
 ## 本地开发
 

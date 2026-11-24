@@ -145,3 +145,21 @@ INSERT INTO public.sys_permission (id, create_user, update_user, code, name, gro
 INSERT INTO public.sys_menu_route (id, create_user, update_user, code, name, route_name, parent_id, icon, sort, route_root) VALUES (27, 1, 1, 'trace-log-page', '集中日志查询', 'trace-log', 4, 'operation-log', 3, 'system');
 INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id) VALUES (16, 1, 1, 27, 27);
 INSERT INTO public.sys_role_permission (id, create_user, update_user, role_id, permission_id) VALUES (27, 1, 1, 1, 27);
+
+-- 接口调用图的进程调试权限，默认授予系统管理员。
+INSERT INTO public.sys_permission (id, create_user, update_user, code, name, group_key, description) VALUES (28, 1, 1, 'system:call-graph:debug', '接口调用图', 'audit', '分析可信项目并调试接口调用');
+INSERT INTO public.sys_menu_route (id, create_user, update_user, code, name, route_name, parent_id, icon, sort, route_root) VALUES (28, 1, 1, 'api-call-graph-page', '接口调用图', 'api-call-graph', 4, 'operation-log', 4, 'system');
+INSERT INTO public.sys_menu_route_permission (id, create_user, update_user, menu_route_id, permission_id) VALUES (17, 1, 1, 28, 28);
+INSERT INTO public.sys_role_permission (id, create_user, update_user, role_id, permission_id) VALUES (28, 1, 1, 1, 28);
+
+-- 接口调用图探针。前面的初始字典使用显式 ID，此处起使用库生成的 ID。
+SELECT setval(pg_get_serial_sequence('public.sys_dict_aggregate', 'id'), max(id)) FROM public.sys_dict_aggregate;
+SELECT setval(pg_get_serial_sequence('public.sys_dict_item', 'id'), max(id)) FROM public.sys_dict_item;
+
+INSERT INTO public.sys_dict_aggregate (namespace, aggregate_key, label, description)
+VALUES ('system', 'api_call_graph_probe', '接口调用图探针', '控制每个请求的方法调用记录数及每次调用的快照值数量');
+
+INSERT INTO public.sys_dict_item (namespace, aggregate_key, dict_key, value, label, description)
+VALUES
+  ('system', 'api_call_graph_probe', 'maxCallsPerRequest', '0', '每个请求最多记录的方法调用次数', '非负整数，0 表示不限制次数'),
+  ('system', 'api_call_graph_probe', 'maxSnapshotValuesPerCall', '1000', '每次方法调用最多采集的快照值数量', '入参与出参共用此额度，非负整数，0 表示不限制值数量');

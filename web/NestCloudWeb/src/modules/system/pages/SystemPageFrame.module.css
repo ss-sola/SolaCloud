@@ -1,0 +1,63 @@
+.viewport :global(.system-workspace) > :global(.page-body) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+@media (max-width: 960px) {
+  .viewport :global(.system-workspace) {
+    overflow: hidden;
+  }
+
+  .viewport :global(.system-workspace) > :global(.page-body) {
+    flex: 1 1 0;
+    padding: 4px;
+  }
+
+  .viewport :global(.topbar) {
+    gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .viewport :global(.topbar-title) {
+    flex: 1;
+  }
+}
+
+.menuButton {
+  flex: none;
+  min-height: 40px;
+  padding: 0 10px;
+  color: var(--system-text);
+  background: var(--system-panel);
+  border: 1px solid var(--system-border);
+  border-radius: 8px;
+}
+
+.menu {
+  position: fixed;
+  inset: 54px auto auto 4px;
+  width: min(300px, calc(100vw - 8px));
+  max-height: calc(100dvh - 60px);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  color: var(--system-text);
+  background: var(--system-panel);
+  border: 1px solid var(--system-border);
+  border-radius: 12px;
+  box-shadow: var(--system-shadow);
+}
+
+.menu :global(.system-sidebar) {
+  width: 100%;
+  border: 0;
+}
+
+.menu :global(.brand-card) {
+  display: none;
+}

@@ -1,0 +1,182 @@
+.canvas {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.canvas .toolbar {
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.canvas .toolbar button {
+  min-height: 28px;
+  min-width: 28px;
+  padding-inline: 8px;
+}
+
+.toolbar button[aria-expanded='true'] {
+  border-color: var(--wf-accent);
+  color: var(--wf-accent);
+}
+
+.hiddenCount,
+.empty {
+  color: var(--wf-secondary);
+  font-size: 0.78rem;
+}
+
+.hiddenCount {
+  margin-inline-start: 4px;
+}
+
+.empty {
+  position: absolute;
+  z-index: 1;
+  inset: auto 10px 8px;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.fold {
+  cursor: pointer;
+  outline: none;
+}
+
+.fold rect {
+  fill: var(--wf-raised);
+  stroke: var(--wf-border);
+}
+
+.fold path {
+  fill: none;
+  stroke: var(--wf-secondary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fold:focus-visible rect,
+.fold:hover rect {
+  stroke: var(--wf-accent);
+  stroke-width: 2;
+}
+
+.canvas [data-entry='true'] text:first-child {
+  fill: var(--wf-accent);
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  container-type: inline-size;
+  isolation: isolate;
+}
+
+.stage > .viewport {
+  position: absolute;
+  inset: 0;
+  height: auto;
+}
+
+.stage > .filterPanel,
+.detailsPanel {
+  position: absolute;
+  top: 10px;
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--wf-surface);
+  border: 1px solid var(--wf-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px #0006;
+}
+
+.stage > .filterPanel {
+  left: 10px;
+  width: min(24rem, calc(100% - 20px));
+  z-index: 2;
+}
+
+.detailsPanel {
+  right: 10px;
+  width: clamp(15.5rem, 32%, 24rem);
+  padding: 0.75rem 0.85rem;
+  color: var(--wf-text);
+}
+
+.detailsPanel code,
+.noCalls {
+  color: var(--wf-secondary);
+  font-size: 0.78rem;
+}
+
+.noCalls {
+  margin: 0.55rem 0 0;
+}
+
+.close {
+  flex: none;
+  padding: 0.2rem 0.45rem;
+  background: var(--wf-raised);
+  border: 1px solid var(--wf-border);
+  border-radius: 4px;
+  color: var(--wf-accent);
+  font-size: 0.78rem;
+}
+.history {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  color: var(--wf-secondary);
+  font-size: 0.75rem;
+}
+.history > div,
+.history form,
+.history label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+.history input {
+  width: 5.5rem;
+  color: var(--wf-text);
+  padding: 0.15rem 0.3rem;
+  background: var(--wf-stage);
+  border: 1px solid var(--wf-border);
+  border-radius: 4px;
+}
+.history button:disabled {
+  opacity: 0.5;
+}
+
+.detailsPanel pre {
+  max-height: 13rem;
+  margin: 0.3rem 0 0;
+  padding: 0.5rem 0.65rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  background: var(--wf-stage);
+  border: 1px solid var(--wf-rule);
+  border-radius: 5px;
+  color: var(--wf-text);
+  font: 0.76rem/1.5 var(--wf-mono);
+}
+
+@container (max-width: 640px) {
+  .detailsPanel {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 46%;
+  }
+}
