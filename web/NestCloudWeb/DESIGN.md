@@ -4,23 +4,22 @@ name: NestCloud System Design
 description: |
   A unified admin interface built on Bootstrap 5.2.3 with a green-accented design system.
   Custom CSS overrides layer on top of Bootstrap defaults to establish the brand palette,
-  spacing, and component styling. The layout uses a two-zone sidebar (green-gradient brand
-  card + light navigation), fixed single-row header, parchment canvas background, and rounded
-  utility cards. The single brand accent is a fresh green (#22a06b) used for primary actions,
-  active nav items, and status indicators.
+  spacing, and component styling. The sidebar pairs a contour-patterned brand card with a
+  softly tinted navigation surface. It uses forest green in light mode and slate blue in
+  dark mode. A fixed single-row header sits above the content canvas and rounded utility cards.
 ---
 
 ## Overview
 
-NestCloud Web 是一个统一的后台管理前端，基于 **Bootstrap 5.2.3**，在其之上叠加了 **绿色强调色系统**。核心视觉区域包括：**品牌侧边栏**（绿色渐变品牌卡 + 浅色导航）、**单行固定顶栏**、**浅色内容画布**（Parchment 背景）和 **圆角内容卡片**。
+NestCloud Web 是一个统一的后台管理前端，基于 **Bootstrap 5.2.3**，在其之上叠加了 **绿色强调色系统**。核心视觉区域包括**品牌侧边栏**、**单行固定顶栏**、**浅色内容画布**（Parchment 背景）和 **圆角内容卡片**。
 
-整体风格是 **清爽的现代管理界面**：绿色渐变侧边栏建立品牌识别，浅色内容区承载数据表格和表单，组件使用柔和的圆角和阴影营造层次感。
+品牌卡右侧的细等高线构成侧边栏的识别图案。菜单底色自上而下逐渐融入面板，内容区用圆角卡片承载数据表格和表单。
 
 **Key Characteristics:**
 
 - **单一绿色强调色** (`#22a06b`) 贯穿所有交互元素：主按钮、活跃导航项、状态徽章、焦点环
 - **Bootstrap 5.2.3 为基础**，通过自定义 CSS 覆盖默认样式（按钮、输入框、模态框、分页器等）
-- **绿色渐变品牌侧边栏** (`linear-gradient(160deg, #1f9d63, #2f855a)`) 带有装饰性椭圆伪元素
+- **侧边栏品牌卡**在浅色主题使用森林绿，深色主题使用蓝灰，两种主题共用同一等高线图案。
 - **Parchment 背景** (`#edf2f7`) 作为全局底色，内容卡片为纯白 `#ffffff`
 - **圆角语法**：sm=8px（按钮/输入框）、md=11px（导航项）、lg=16px（加载面板）、xxxl=22px（页面卡片）、pill=9999px（标签/搜索框）
 - **字体**：Inter + PingFang SC + Microsoft YaHei，body 17px，weight 400/600/700/800（无 500）
@@ -62,13 +61,13 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 以下品牌、表面与组件色值描述默认的浅绿主题。深色主题与集中日志流程图共用色板，通过主题变量切换，布局、字号与间距沿用同一套规范。
 
-| 深色用途 | 颜色 |
-| --- | --- |
-| 页面画布、强调按钮上的文字 | `#0d1219` |
-| 卡片、表单和弹窗 | `#19212d` |
-| 抬高的表面、分隔边框 | `#202a38`、`#344258` |
-| 正文、次要说明 | `#e4eaf3`、`#abb8ca` |
-| 交互强调、选中底色 | `#85afe8`、`#263143` |
+| 深色用途                   | 颜色                 |
+| -------------------------- | -------------------- |
+| 页面画布、强调按钮上的文字 | `#0d1219`            |
+| 卡片、表单和弹窗           | `#19212d`            |
+| 抬高的表面、分隔边框       | `#202a38`、`#344258` |
+| 正文、次要说明             | `#e4eaf3`、`#abb8ca` |
+| 交互强调、选中底色         | `#85afe8`、`#263143` |
 
 ### Brand & Accent
 
@@ -80,8 +79,8 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 - **Canvas** (`#ffffff`): 纯白，内容卡片、表格、模态框的底色。
 - **Parchment** (`#edf2f7`): 全局页面背景色，浅灰蓝调。
-- **Surface Soft** (`#f8fafc`): 极浅的冷色调，用于侧边栏导航背景、汇总面板、指标卡片。
-- **Sidebar Dark Gradient** (`#1f9d63` → `#2f855a`): `linear-gradient(160deg, #1f9d63, #2f855a)`，品牌侧边栏品牌区的渐变。
+- **Surface Soft** (`#f8fafc`) 用于汇总面板和指标卡片。
+- **Sidebar** 的浅色品牌卡从 `#123f36` 过渡到 `#347663`，菜单从 `#e3f0e9` 过渡到白色。深色主题使用现有蓝灰面板色阶。
 
 ### Text
 
@@ -158,12 +157,11 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 ## Elevation & Depth
 
-| Level         | Treatment                            | Use                              |
-| ------------- | ------------------------------------ | -------------------------------- |
-| Flat          | 无边框、无阴影                       | 全局背景、侧边栏品牌区           |
-| Soft shadow   | `0 20px 48px rgba(15, 23, 42, 0.08)` | 页面卡片、登录面板               |
-| Hairline      | 1px `rgba(15, 23, 42, 0.08)`         | 输入框边框、卡片边框、表格分隔线 |
-| Brand shadow  | 品牌区白色椭圆伪元素装饰             | 侧边栏品牌区视觉层次             |
+| Level       | Treatment                            | Use                              |
+| ----------- | ------------------------------------ | -------------------------------- |
+| Flat        | 无边框、无阴影                       | 全局背景、侧边栏品牌区           |
+| Soft shadow | `0 20px 48px rgba(15, 23, 42, 0.08)` | 页面卡片、登录面板               |
+| Hairline    | 1px `rgba(15, 23, 42, 0.08)`         | 输入框边框、卡片边框、表格分隔线 |
 
 ---
 
@@ -173,11 +171,10 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 | Token | Value  | Use                    |
 | ----- | ------ | ---------------------- |
-| none  | 0px    | 品牌区底部装饰         |
 | xs    | 5px    | 树形控件切换按钮       |
 | sm    | 8px    | 按钮、输入框、分页按钮 |
 | md    | 11px   | 导航项、Toast          |
-| lg    | 16px   | 加载面板               |
+| lg    | 16px   | 加载面板、侧栏品牌卡   |
 | xl    | 18px   | 指标卡片               |
 | xxl   | 20px   | 登录面板               |
 | xxxl  | 22px   | 页面内容卡片           |
@@ -189,17 +186,18 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 
 ### Navigation
 
-**`sidebar-brand`** — 品牌区
+**`brand-card`** — 品牌区
 
-- 渐变背景 `linear-gradient(160deg, #1f9d63, #2f855a)`，白色文字。
-- 底部圆角 44px，有两个白色半透明椭圆伪元素作为装饰。
+- 品牌卡左右留白 12px，四角半径 16px。等高线从右下角向内延伸，在标题附近淡出。
+- 在 960px 及以下，卡片上下内边距缩至 16px。
 - 标题 32px weight 800，副标题 16px。
 
 **`sidebar-link`** — 导航项
 
-- 默认：透明背景，`#1f2937` 文字，11px 圆角，11px × 14px padding。
-- 活跃：`#dff3ea` 背景，`#22a06b` 文字。
-- hover：极浅绿色背景。
+- 默认项使用透明背景和 12px 圆角。
+- 分组和菜单项沿用菜单配置的 16px 图标。深色主题使用浅色图标。
+- 悬停和选中项使用主题强调底色。浅色主题搭配 `#165d43` 文字，深色主题使用蓝色强调文字。
+- 当前页面的导航项左侧另有 3px 强调色标记。
 
 **`sidebar-group-toggle`** — 分组折叠按钮
 
@@ -341,7 +339,7 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 ### Do
 
 - 使用 `#22a06b`（`--system-primary`）作为唯一的交互强调色。
-- 侧边栏品牌区使用绿色渐变 + 白色椭圆装饰伪元素。
+- 品牌区的等高线保持静态，纹理集中在右侧，便于阅读左侧文字。
 - 页面卡片使用 22px 大圆角 + 柔和阴影。
 - 按钮使用 8px 圆角，pill 形状仅用于标签和搜索框。
 - 顶栏贴合内容区的顶部和两侧，正文独立滚动。
@@ -355,7 +353,7 @@ When selectors conflict, `legacy-style.css` takes priority due to load order.
 - 不要使用过大的圆角（如 24px+）在非卡片元素上。
 - 不要使用纯黑 `#000000` 作为文字色。
 - 不要使用强烈的阴影（如 `0 8px 30px rgba(15, 23, 42, 0.16)`）。
-- 不要使用深色侧边栏（`#0f172a`），侧边栏应为浅色 `#f8fafc`。
+- 浅色主题下，深绿底色仅用于侧栏品牌卡，菜单区域保持明亮。
 - 不要在新代码中使用 `.app-shell` 布局（已被 `.system-layout` 替代）。
 - 不要直接写 `transition: all`，明确列出需要过渡的属性。
 

@@ -1,7 +1,10 @@
 :root[data-theme='light'] {
   --system-bg: #edf2f7;
   --system-panel: #ffffff;
-  --system-sidebar: linear-gradient(160deg, #1f9d63, #2f855a);
+  --sidebar-wash: #e3f0e9;
+  --sidebar-brand: linear-gradient(115deg, #123f36 12%, #20594a 64%, #347663);
+  --sidebar-contour: rgba(207, 244, 217, 0.34);
+  --sidebar-ink: #165d43;
   --system-primary: #22a06b;
   --system-primary-soft: #dff3ea;
   --system-text: #1f2937;
@@ -13,7 +16,10 @@
 :root[data-theme='dark'] {
   --system-bg: var(--wf-stage);
   --system-panel: var(--wf-surface);
-  --system-sidebar: linear-gradient(160deg, var(--wf-raised), var(--wf-stage));
+  --sidebar-wash: var(--wf-raised);
+  --sidebar-brand: linear-gradient(115deg, var(--wf-stage) 12%, var(--wf-raised) 64%, var(--wf-border));
+  --sidebar-contour: rgba(162, 194, 230, 0.3);
+  --sidebar-ink: var(--wf-accent);
   --system-primary: var(--wf-accent);
   --system-on-primary: var(--wf-stage);
   --system-primary-soft: var(--wf-rule);
@@ -22,8 +28,6 @@
   --system-border: var(--wf-border);
   --system-shadow: 0 20px 48px rgba(0, 0, 0, 0.4);
   --brand-text: var(--wf-text);
-  --brand-wave: var(--wf-rule);
-  --brand-wave-front: var(--wf-border);
   --chip-bg: var(--wf-raised);
   --badge-success-text: var(--wf-success);
   --badge-success-bg: var(--wf-success-bg);
@@ -122,7 +126,7 @@ button {
   width: 280px;
   min-height: 0;
   overflow-y: auto;
-  background: var(--system-panel);
+  background: linear-gradient(to bottom, var(--sidebar-wash), var(--system-panel) 300px);
   border-right: 1px solid var(--system-border);
 }
 
@@ -139,34 +143,28 @@ button {
 }
 
 .brand-card {
-  padding: 26px 28px 66px;
-  color: var(--brand-text, var(--system-panel));
-  background: var(--system-sidebar);
-  border-bottom-left-radius: 44px;
   position: relative;
   overflow: hidden;
-}
-
-.brand-card::after,
-.brand-card::before {
-  content: '';
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  height: 60px;
-  border-radius: 999px;
-  background: var(--brand-wave, rgba(255, 255, 255, 0.22));
-}
-
-.brand-card::before {
-  bottom: 18px;
-  transform: rotate(6deg);
+  margin: 12px 12px 0;
+  padding: 24px 20px 28px;
+  color: var(--brand-text, var(--system-panel));
+  background: var(--sidebar-brand);
+  border-radius: 16px;
 }
 
 .brand-card::after {
-  bottom: -4px;
-  background: var(--brand-wave-front, rgba(255, 255, 255, 0.3));
-  transform: rotate(-4deg);
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(100%, 300px);
+  background: repeating-radial-gradient(
+    ellipse 150px 92px at 103% 115%,
+    transparent 0 10px,
+    var(--sidebar-contour) 11px 12px,
+    transparent 13px 18px
+  );
+  mask-image: linear-gradient(110deg, transparent 18%, #000 86%);
+  pointer-events: none;
 }
 
 .brand-title {
@@ -216,11 +214,6 @@ button {
   text-align: left;
 }
 
-.sidebar-group-toggle:hover {
-  background: var(--system-primary-soft);
-  color: var(--system-primary);
-}
-
 .sidebar-group-label {
   flex: 1;
 }
@@ -247,13 +240,19 @@ button {
   color: var(--system-text);
   text-decoration: none;
   border-radius: 12px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.sidebar-link:hover,
+.sidebar-group-toggle:hover,
+.sidebar-link:hover {
+  background-color: var(--system-primary-soft);
+  color: var(--sidebar-ink);
+}
+
 .sidebar-link.active {
-  background: var(--system-primary-soft);
-  color: var(--system-primary);
+  background-color: var(--system-primary-soft);
+  color: var(--sidebar-ink);
+  box-shadow: inset 3px 0 var(--system-primary);
 }
 
 .topbar {
@@ -1085,6 +1084,13 @@ button {
     flex: none;
     width: 100%;
     overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--system-border);
+  }
+
+  .brand-card {
+    margin: 8px 12px 0;
+    padding-block: 16px;
   }
 
   .system-workspace > .page-body {
