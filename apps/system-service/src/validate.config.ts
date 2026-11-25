@@ -6,6 +6,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  ArrayNotEmpty,
+  IsArray,
   IsUrl,
   Matches,
   Min,
@@ -13,8 +15,10 @@ import {
 
 /** system-service 配置校验。继承 DatabaseConfig，额外校验 RegistryUrl。 */
 export class SystemServiceConfig extends DatabaseConfig {
-  @IsUrl({ require_tld: false })
-  RegistryUrl!: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUrl({ require_tld: false }, { each: true })
+  RegistryUrl!: string[];
 
   @IsString()
   @IsOptional()
