@@ -21,9 +21,7 @@
                     "description": "服务账号可读取的项目根目录绝对路径"
                   }
                 },
-                "required": [
-                  "project"
-                ]
+                "required": ["project"]
               }
             }
           }
@@ -56,6 +54,11 @@
                           "type": "string",
                           "description": "项目内相对启动入口；可在构建完成前识别"
                         },
+                        "workerEntries": {
+                          "type": "array",
+                          "description": "扫描确认的项目内独立 BullMQ Worker 启动入口",
+                          "items": { "type": "string" }
+                        },
                         "routes": {
                           "type": "array",
                           "items": {
@@ -70,18 +73,10 @@
                           }
                         }
                       },
-                      "required": [
-                        "framework",
-                        "routes",
-                        "warnings"
-                      ]
+                      "required": ["framework", "workerEntries", "routes", "warnings"]
                     }
                   },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
+                  "required": ["code", "message", "data"]
                 }
               }
             }
@@ -111,10 +106,7 @@
                     "description": "扫描结果中的接口 ID"
                   }
                 },
-                "required": [
-                  "project",
-                  "routeId"
-                ]
+                "required": ["project", "routeId"]
               }
             }
           }
@@ -158,10 +150,7 @@
                                 "description": "被调用方 ID"
                               }
                             },
-                            "required": [
-                              "from",
-                              "to"
-                            ]
+                            "required": ["from", "to"]
                           }
                         },
                         "roots": {
@@ -179,19 +168,10 @@
                           }
                         }
                       },
-                      "required": [
-                        "nodes",
-                        "edges",
-                        "roots",
-                        "warnings"
-                      ]
+                      "required": ["nodes", "edges", "roots", "warnings"]
                     }
                   },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
+                  "required": ["code", "message", "data"]
                 }
               }
             }
@@ -221,9 +201,7 @@
                     "description": "可选，兼容旧客户端的单接口采集"
                   }
                 },
-                "required": [
-                  "project"
-                ]
+                "required": ["project"]
               }
             }
           }
@@ -253,16 +231,10 @@
                           "description": "启动探针返回的会话 ID"
                         }
                       },
-                      "required": [
-                        "sessionId"
-                      ]
+                      "required": ["sessionId"]
                     }
                   },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
+                  "required": ["code", "message", "data"]
                 }
               }
             }
@@ -271,7 +243,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "description": "用项目目录启动，切换接口时复用同一进程和会话。旧客户端附带 routeId 时，仅采集该接口。"
+        "description": "用项目目录启动 HTTP 探针与扫描确认的独立 BullMQ Worker。切换接口时复用同一会话。旧客户端附带 routeId 时，仅采集该接口。"
       }
     },
     "/api/call-graph/stop": {
@@ -290,9 +262,7 @@
                     "description": "启动探针返回的会话 ID"
                   }
                 },
-                "required": [
-                  "sessionId"
-                ]
+                "required": ["sessionId"]
               }
             }
           }
@@ -320,16 +290,10 @@
                           "type": "boolean"
                         }
                       },
-                      "required": [
-                        "ok"
-                      ]
+                      "required": ["ok"]
                     }
                   },
-                  "required": [
-                    "code",
-                    "message",
-                    "data"
-                  ]
+                  "required": ["code", "message", "data"]
                 }
               }
             }
@@ -390,7 +354,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "源码位置标识"
+            "description": "源码方法或 BullMQ 节点的标识"
           },
           "name": {
             "type": "string",
@@ -404,21 +368,21 @@
             "type": "boolean",
             "description": "所选接口的源码分析确认此方法及其已解析的调用均为同步内存计算。未知或者缺失时保留显示。"
           },
+          "kind": {
+            "type": "string",
+            "enum": ["queue", "worker"],
+            "description": "BullMQ 入队或 Worker 执行节点"
+          },
           "file": {
             "type": "string",
-            "description": "项目相对路径"
+            "description": "项目相对路径；BullMQ 节点显示 BullMQ"
           },
           "line": {
             "type": "integer",
-            "description": "源码行号，从 1 开始"
+            "description": "源码行号，从 1 开始；BullMQ 节点为 0"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "file",
-          "line"
-        ]
+        "required": ["id", "name", "file", "line"]
       },
       "Route": {
         "type": "object",
@@ -444,13 +408,7 @@
             "description": "路由声明行号"
           }
         },
-        "required": [
-          "id",
-          "method",
-          "path",
-          "file",
-          "line"
-        ]
+        "required": ["id", "method", "path", "file", "line"]
       }
     },
     "responses": {
@@ -473,11 +431,7 @@
                   "nullable": true
                 }
               },
-              "required": [
-                "code",
-                "message",
-                "data"
-              ]
+              "required": ["code", "message", "data"]
             }
           }
         }

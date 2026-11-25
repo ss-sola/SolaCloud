@@ -14,6 +14,7 @@ parentPort.on('message', ({ id, routeId, probeRoutes }) => {
       value = {
         framework: analyzer.framework,
         entry: analyzer.entry,
+        workerEntries: analyzer.workerEntries,
         routes: analyzer.routes,
         warnings: analyzer.warnings,
       };

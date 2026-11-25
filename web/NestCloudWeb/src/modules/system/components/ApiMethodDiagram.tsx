@@ -121,18 +121,22 @@ export function ApiMethodDiagram({
   }, []);
   const baseIds = useMemo(() => new Set(graph.nodes.map((node) => node.id)), [graph]);
   const named = useMemo(() => graph.nodes.filter((node) => !isAnonymousMethod(node)), [graph]);
-  const extraNodes = useMemo(() => {
+  const { extraNodes, queueNodes } = useMemo(() => {
     const extra = new Map<string, MethodNode>();
-    for (const { node } of request?.calls.values() ?? []) {
-      if (!baseIds.has(node.id) && !isAnonymousMethod(node)) extra.set(node.id, node);
+    const queue = new Map<string, MethodNode>();
+    for (const { node, queueAnchor } of request?.calls.values() ?? []) {
+      if (baseIds.has(node.id) || isAnonymousMethod(node)) continue;
+      if (node.kind || queueAnchor) queue.set(node.id, node);
+      else extra.set(node.id, node);
     }
-    return [...extra.values()];
+    for (const id of queue.keys()) extra.delete(id);
+    return { extraNodes: [...extra.values()], queueNodes: [...queue.values()] };
   }, [request, baseIds]);
-  const extraVisible = showExtras || named.length === 0;
-  const candidates = useMemo(
-    () => (extraVisible ? [...named, ...extraNodes] : named),
-    [extraVisible, named, extraNodes],
+  const additionalNodes = useMemo(
+    () => (showExtras || !named.length ? [...queueNodes, ...extraNodes] : queueNodes),
+    [showExtras, named.length, queueNodes, extraNodes],
   );
+  const candidates = useMemo(() => [...named, ...additionalNodes], [named, additionalNodes]);
   const isVisible = useCallback(
     (node: MethodNode) => !excluded.has(node.id) && !(hideStatic && node.computationOnly === true),
     [excluded, hideStatic],
@@ -154,7 +158,7 @@ export function ApiMethodDiagram({
     const edges = new Map(staticGraph.edges.map((edge) => [edgeKey(edge), edge]));
     for (const [key, edge] of observed.observedEdges) if (!edges.has(key)) edges.set(key, edge);
     const roots = new Set([...staticGraph.roots, ...observed.entryStates.keys()]);
-    const additional = extraVisible ? extraNodes.filter((node) => visibleIds.has(node.id)) : [];
+    const additional = additionalNodes.filter((node) => visibleIds.has(node.id));
     if (
       !additional.length &&
       edges.size === staticGraph.edges.length &&
@@ -166,7 +170,7 @@ export function ApiMethodDiagram({
       roots: [...roots],
       nodes: [...staticGraph.nodes, ...additional],
     };
-  }, [observed, staticGraph, extraVisible, extraNodes, visibleIds]);
+  }, [observed, staticGraph, additionalNodes, visibleIds]);
   // Arguments, timing and repeated invocations frequently arrive with identical topology.
   const previous = useRef<Topology>(proposed);
   const structure = sameTopology(previous.current, proposed) ? previous.current : proposed;
@@ -504,7 +508,13 @@ export function ApiMethodDiagram({
                       ? '未执行'
                       : '待采集';
                 const name = isEntry ? 'HTTP 入口 · ' + route.method : node.name;
-                const file = isEntry ? route.path : node.file.split('/').pop() + ':' + node.line;
+                const file = isEntry
+                  ? route.path
+                  : node.kind === 'queue'
+                    ? '队列提交'
+                    : node.kind === 'worker'
+                      ? '异步任务执行'
+                      : node.file.split('/').pop() + ':' + node.line;
                 const last = activity?.lastExit;
                 const metric = isEntry
                   ? request?.end && formatDuration(request.end.durationMs)
@@ -535,7 +545,7 @@ export function ApiMethodDiagram({
                       <title>
                         {isEntry
                           ? route.method + ' ' + route.path
-                          : node.name + '\n' + node.file + ':' + node.line}
+                          : node.name + '\n' + (node.kind ? file : node.file + ':' + node.line)}
                       </title>
                       <rect className={styles.box} width={cardWidth} height={cardHeight} rx="7" />
                       {state === 'running' && (

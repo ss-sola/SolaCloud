@@ -9,6 +9,7 @@ import { DEFAULT_PROBE_LIMITS, PROBE_DICTIONARY } from '../constants/probe-limit
 import { CallGraphController } from '../modules/call-graph/call-graph.controller';
 import { ProbeDictionaryClient } from '../modules/call-graph/probe-dictionary.client';
 import { ProbeProcessService } from '../modules/call-graph/probe-process.service';
+import { ProbeQueueRelay } from '../modules/call-graph/probe-queue-relay';
 import { ProjectAnalysisService } from '../modules/call-graph/project-analysis.service';
 import { ProbeSession, type ProbeEvent } from '../modules/call-graph/probe-session';
 
@@ -72,6 +73,31 @@ async function createProject(root: string) {
 afterEach(() => vi.unstubAllEnvs());
 
 describe('接口调用图服务', () => {
+  it('跨进程消息先到达时依次等待入队节点，并保留嵌套队列的父子关系', () => {
+    const published: ProbeEvent[] = [];
+    const relay = new ProbeQueueRelay((event) => published.push(event));
+    const requestId = 'request';
+    relay.accept({ type: 'end', requestId });
+    relay.accept({ type: 'enter', requestId, callId: 'nested-worker', queueAnchor: 'nested' });
+    relay.accept({ type: 'enter', requestId, callId: 'worker', queueAnchor: 'queue' });
+    relay.accept({
+      type: 'enter',
+      requestId,
+      callId: 'nested',
+      queueAnchor: 'queue',
+      node: { kind: 'queue' },
+    });
+    relay.accept({ type: 'enter', requestId: 'another', callId: 'queue', node: { kind: 'queue' } });
+    expect(published).toHaveLength(2);
+    relay.accept({ type: 'enter', requestId, callId: 'queue', node: { kind: 'queue' } });
+    expect(published.slice(2).map((event) => event.callId)).toEqual([
+      'queue',
+      'worker',
+      'nested',
+      'nested-worker',
+    ]);
+  });
+
   it('每次启动重新读取系统字典，两个额度分别接受 0，缺少项沿用默认额度', async () => {
     const client = new ProbeDictionaryClient();
     const getItems = vi.spyOn(client, 'getItems');
@@ -174,6 +200,27 @@ describe('接口调用图服务', () => {
     vi.stubEnv('PROBE_TEST_SECRET', 'unavailable-to-target');
     try {
       await createProject(project);
+      await writeFile(
+        path.join(project, 'package.json'),
+        JSON.stringify({
+          type: 'module',
+          scripts: { 'start:first': 'node src/first.cjs', 'start:second': 'node src/second.cjs' },
+        }),
+      );
+      const bullmq = path.join(project, 'node_modules/bullmq');
+      await mkdir(bullmq);
+      await writeFile(path.join(bullmq, 'index.js'), 'exports.Worker = class Worker {};');
+      for (const name of ['first', 'second']) {
+        await writeFile(
+          path.join(project, 'src', name + '.cjs'),
+          `
+          const { Worker } = require('bullmq');
+          new Worker();
+          process.send({ type: 'warning', message: '${name} ready' });
+          setInterval(() => {}, 1000);
+        `,
+        );
+      }
       await expect(analysis.scan('.')).rejects.toThrow('绝对目录');
       await expect(analysis.scan(path.join(project, 'missing'))).rejects.toThrow(
         '可读取的项目目录',
@@ -183,7 +230,11 @@ describe('接口调用图服务', () => {
       );
       expect(() => analysis.graph(project, routeId)).toThrow('重新扫描');
       const catalog = await analysis.scan(project);
-      expect(catalog).toMatchObject({ framework: 'koa', entry: 'src/index.ts' });
+      expect(catalog).toMatchObject({
+        framework: 'koa',
+        entry: 'src/index.ts',
+        workerEntries: ['src/first.cjs', 'src/second.cjs'],
+      });
       expect(catalog.routes.map((route) => route.id)).toEqual([routeId]);
       expect(() => analysis.graph(project, 'GET /unknown')).toThrow('接口不存在');
       const graph = await analysis.graph(project, routeId);
@@ -202,6 +253,16 @@ describe('接口调用图服务', () => {
       const live = StreamRecorder.subscribe(session);
       const listening = () => live.events.find((e) => e.state === 'listening');
       await vi.waitFor(() => expect(listening()).toBeDefined(), { timeout: 6000 });
+      await vi.waitFor(
+        () =>
+          expect(live.events).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ type: 'warning', message: 'first ready' }),
+              expect.objectContaining({ type: 'warning', message: 'second ready' }),
+            ]),
+          ),
+        { timeout: 6000 },
+      );
       const origin = 'http://127.0.0.1:' + listening()!.port;
       const response = await fetch(origin + '/math/double');
       expect(await response.json()).toEqual({ value: 12, inherited: false });

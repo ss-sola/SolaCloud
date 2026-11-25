@@ -4,6 +4,7 @@ import ts from 'typescript-compiler';
 import { collectKoaRoutes, hasRootRouterLoader } from './analyzer-koa.mjs';
 import { collectNestRoutes } from './analyzer-nest.mjs';
 import { inProject, sourceFiles } from './analyzer-source.mjs';
+import { discoverWorkerEntries, nodeScriptEntry } from './analyzer-bullmq.mjs';
 
 function readConfig(root, name) {
   const file = path.join(root, name);
@@ -82,14 +83,6 @@ function sourceEntry(root, source, base) {
   return ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs']
     .map((ext) => path.resolve(source, base + ext))
     .find((file) => inProject(root, file) && fs.statSync(file).isFile());
-}
-
-function nodeScriptEntry(script) {
-  if (typeof script !== 'string') return;
-  // Read a static executable path only. Never evaluate the project's start script.
-  const match =
-    /^\s*node\s+(?:--enable-source-maps\s+)?(?:"([^"]+)"|'([^']+)'|([^\s;&|<>]+))\s*$/.exec(script);
-  return match?.slice(1).find(Boolean);
 }
 
 function nestEntry({ root, source, main, manifest, nestConfig }) {
@@ -190,10 +183,18 @@ export function selectProjectStrategy(project) {
   const descriptor = matches[0];
   const { strategy, source, main } = descriptor;
   const executable = strategy.entry(descriptor);
+  const entry = executable && path.relative(root, executable).split(path.sep).join('/');
   return {
     root,
     framework: strategy.framework,
-    entry: executable && path.relative(root, executable).split(path.sep).join('/'),
+    entry,
+    discoverWorkers: () =>
+      discoverWorkerEntries({
+        root,
+        entry,
+        framework: strategy.framework,
+        scripts: manifest.scripts,
+      }),
     discover: () => strategy.collect({ root, source, sourceFiles, sourceEntry: main }),
   };
 }

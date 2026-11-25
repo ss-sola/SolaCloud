@@ -215,7 +215,11 @@ describe('接口调用图', () => {
         disconnect() {}
       },
     );
-    vi.spyOn(ApiCallGraph, 'scan').mockResolvedValue({ routes: [route], warnings: [] });
+    vi.spyOn(ApiCallGraph, 'scan').mockResolvedValue({
+      routes: [route],
+      workerEntries: ['dist/jobs.js', 'dist/mail.cjs'],
+      warnings: [],
+    });
     const load = vi.spyOn(ApiCallGraph, 'graph').mockResolvedValue(graph);
     const start = vi.spyOn(ApiCallGraph, 'start').mockResolvedValue({ sessionId: 'session' });
     const stop = vi.spyOn(ApiCallGraph, 'stop').mockResolvedValue({ ok: true });
@@ -229,6 +233,8 @@ describe('接口调用图', () => {
     const screen = render(<ApiCallGraphPage />);
     fireEvent.click(screen.getByRole('button', { name: '扫描接口' }));
     fireEvent.click(await screen.findByRole('button', { name: 'GET /version' }));
+    expect(screen.getByText('已识别 2 个独立 BullMQ Worker 入口')).toBeVisible();
+    expect(screen.queryByLabelText(/Worker 入口文件/)).toBeNull();
     expect(await screen.findByRole('button', { name: 'getVersion，待采集' })).toBeVisible();
     expect(load).toHaveBeenCalledWith(
       'E:\\project\\wzj-nodejs-v2',
@@ -237,6 +243,7 @@ describe('接口调用图', () => {
     );
     expect(start).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '启动探针' }));
+    expect(start).toHaveBeenCalledWith('E:\\project\\wzj-nodejs-v2');
     await waitFor(() => expect(receive).toBeDefined());
     act(() => {
       receive({ seq: 1, type: 'status', state: 'listening', port: 4399 });

@@ -118,7 +118,7 @@ export class ProjectAnalysisService implements OnModuleDestroy {
     const worker = this.worker;
     if (!worker || worker.project !== project || !this.catalog)
       throw new ProjectException('项目已切换，请重新扫描', 409);
-    const { framework, entry } = this.catalog;
+    const { framework, entry, workerEntries } = this.catalog;
     if (framework !== 'koa' && framework !== 'nestjs')
       throw new ProjectException('无法识别项目框架。当前探针支持 Koa 和 NestJS HTTP 项目。', 422);
     if (!entry)
@@ -151,6 +151,7 @@ export class ProjectAnalysisService implements OnModuleDestroy {
       project,
       framework,
       entry,
+      workerEntries,
       routes,
       computations: (id: string) =>
         (this.worker?.project === project ? this.computations : snapshot).get(id),
