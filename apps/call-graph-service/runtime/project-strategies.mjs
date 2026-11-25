@@ -23,6 +23,21 @@ function importedPackages(file) {
   const packages = [];
   const ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, false);
   for (const stmt of ast.statements) {
+    if (
+      ts.isExportDeclaration(stmt) &&
+      !stmt.isTypeOnly &&
+      stmt.moduleSpecifier?.text === '@nestjs/common'
+    ) {
+      const exports = stmt.exportClause;
+      if (
+        !exports ||
+        (ts.isNamedExports(exports) &&
+          exports.elements.some(
+            (item) => !item.isTypeOnly && (item.propertyName ?? item.name).text === 'Controller',
+          ))
+      )
+        packages.push(stmt.moduleSpecifier.text);
+    }
     if (!ts.isImportDeclaration(stmt) || stmt.importClause?.isTypeOnly) continue;
     const mod = stmt.moduleSpecifier.text;
     const named = stmt.importClause?.namedBindings;

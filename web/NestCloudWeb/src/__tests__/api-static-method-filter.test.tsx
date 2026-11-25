@@ -41,10 +41,15 @@ it('filters only confirmed local computation and counts overlapping manual filte
   const ui = render(<ApiMethodDiagram route={route} graph={graph} interrupted={false} />);
   const edge = (from: string, to: string) =>
     ui.container.querySelector(`[data-from="${from}"][data-to="${to}"]`);
-  fireEvent.click(ui.getByRole('button', { name: '过滤方法' }));
+  fireEvent.click(ui.getByRole('button', { name: '过滤方法（1）' }));
   const mode = ui.getByRole('switch', { name: '过滤静态方法' });
   const manual = ui.getByRole('checkbox', { name: /隐藏 Version\.fromString/ });
   const locate = ui.getByRole('button', { name: /定位 Version\.fromString/ });
+  expect(mode).toBeChecked();
+  expect(manual).toBeChecked();
+  expect(manual).toBeDisabled();
+  expect(edge(root.id, leaf.id)).toHaveAttribute('data-state', 'idle');
+  fireEvent.click(mode);
   expect(manual).not.toBeChecked();
   fireEvent.click(manual);
   fireEvent.click(mode);
@@ -108,9 +113,9 @@ it('projects a probe-only calculation onto real visible ancestors and restores i
   fireEvent.click(ui.getByRole('checkbox', { name: /显示探针补充的方法/ }));
   const edge = (from: string, to: string) =>
     ui.container.querySelector(`[data-from="${from}"][data-to="${to}"]`);
-  expect(edge(extra.id, leaf.id)).toHaveAttribute('data-state', 'running');
-  fireEvent.click(ui.getByRole('button', { name: '过滤方法' }));
-  fireEvent.click(ui.getByRole('switch', { name: '过滤静态方法' }));
+  expect(edge(extra.id, leaf.id)).toBeNull();
+  fireEvent.click(ui.getByRole('button', { name: '过滤方法（2）' }));
+  expect(ui.getByRole('switch', { name: '过滤静态方法' })).toBeChecked();
   expect(ui.queryByRole('button', { name: 'Version.parse，执行中' })).toBeNull();
   expect(ui.getByRole('checkbox', { name: /隐藏 Version\.parse/ })).toBeChecked();
   expect(ui.getByRole('button', { name: '过滤方法（2）' })).toBeVisible();
@@ -121,6 +126,7 @@ it('projects a probe-only calculation onto real visible ancestors and restores i
   expect(ui.getByRole('button', { name: '过滤方法（1）' })).toBeVisible();
   fireEvent.click(ui.getByRole('checkbox', { name: /显示探针补充的方法/ }));
   fireEvent.click(ui.getByRole('button', { name: '清除过滤' }));
+  expect(edge(extra.id, leaf.id)).toHaveAttribute('data-state', 'running');
   fireEvent.click(ui.getByRole('button', { name: /定位 Version\.parse/ }));
   expect(ui.getByRole('region', { name: '方法详情' })).toHaveTextContent('demo');
 });
@@ -164,8 +170,8 @@ it('locates a shared descendant through consecutive group and manual exclusions 
       interrupted={false}
     />,
   );
-  fireEvent.click(ui.getByRole('button', { name: '过滤方法' }));
-  fireEvent.click(ui.getByRole('switch', { name: '过滤静态方法' }));
+  fireEvent.click(ui.getByRole('button', { name: '过滤方法（2）' }));
+  expect(ui.getByRole('switch', { name: '过滤静态方法' })).toBeChecked();
   fireEvent.click(ui.getByRole('checkbox', { name: /隐藏 dispatch/ }));
   fireEvent.click(ui.getByRole('checkbox', { name: /隐藏 audit/ }));
   expect(ui.getByRole('button', { name: '过滤方法（4）' })).toBeVisible();

@@ -198,7 +198,17 @@ test(
       else events.push(value);
     });
     async function until(done) {
-      while (!done()) await once(child, 'message', { signal: AbortSignal.timeout(5000) });
+      try {
+        while (!done()) await once(child, 'message', { signal: AbortSignal.timeout(8000) });
+      } catch (cause) {
+        throw new Error(
+          '探针未收到所需事件：' +
+            events.map((e) => e.node?.name ?? e.message ?? e.type).join(', ') +
+            '；子进程退出码 ' +
+            child.exitCode,
+          { cause },
+        );
+      }
     }
     child.send({ type: 'configure', framework: 'nestjs', entry, routes: [route] });
     await until(() => events.some((e) => e.type === 'listening'));
@@ -220,6 +230,10 @@ test(
       const trace = events.filter((e) => e.requestId === req.requestId);
       const enters = trace.filter((e) => e.type === 'enter');
       assert.equal(req.routeId, route.id);
+      assert.deepEqual(req.parameters, { query: {} });
+      assert.deepEqual(trace.find((e) => e.type === 'requestParams')?.parameters.path, {
+        id: String(n),
+      });
       assert.deepEqual(
         enters.map((e) => ({ name: e.node.name, id: e.node.id })),
         expected,

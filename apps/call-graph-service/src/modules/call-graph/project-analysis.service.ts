@@ -1,6 +1,6 @@
-import { getConfig, ProjectException } from '@nest-cloud/sdk';
+import { ProjectException } from '@nest-cloud/sdk';
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { realpathSync, statSync } from 'node:fs';
+import { opendirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 import type { Catalog, Graph, ProbeRoute, ProbeTarget } from './types';
@@ -58,21 +58,15 @@ export class ProjectAnalysisService implements OnModuleDestroy {
   private readonly graphs = new Map<string, Promise<Graph>>();
   private computations = new Map<string, ReadonlySet<string>>();
 
-  /** 在检查允许列表之后才访问请求路径，符号链接按真实目录比较。 */
   resolveProject(input: string) {
     if (!path.isAbsolute(input)) throw new ProjectException('请输入服务所在机器上的绝对目录', 400);
-    const match = getConfig<string>('CallGraphProjectDirs')
-      .split(';')
-      .map((item) => item.trim())
-      .find((item) => path.isAbsolute(item) && path.relative(item, input) === '');
-    if (!match) throw new ProjectException('项目未列入 CallGraphProjectDirs', 403);
     try {
-      const project = realpathSync(match);
-      if (statSync(project).isDirectory()) return project;
+      const project = realpathSync(input);
+      opendirSync(project).closeSync();
+      return project;
     } catch {
-      /* 统一返回可操作的目录错误 */
+      throw new ProjectException('请输入存在且服务可读取的项目目录', 400);
     }
-    throw new ProjectException('项目目录不存在或服务无权访问', 400);
   }
 
   async scan(input: string): Promise<Catalog> {

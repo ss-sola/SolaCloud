@@ -1,6 +1,4 @@
 {
-  // 允许分析的项目绝对路径，多个目录用英文分号分隔；留空时不允许分析任何项目。
-  "CallGraphProjectDirs": "",
   // 服务 API 的公共路由前缀，例如 api 对应 /api。
   "GlobalPrefix": "api",
   // 当前实例的 HTTP 监听端口。同机运行多个实例时，可在各自的 .env 中覆盖。

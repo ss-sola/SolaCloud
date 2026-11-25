@@ -12,7 +12,7 @@ import type { ProbeTarget } from './types';
 const SESSION_LIMIT_MS = 30 * 60_000;
 const REPLAY_TTL_MS = 5 * 60_000;
 const STOP_TIMEOUT_MS = 4_000;
-const TRACE_EVENTS = new Set(['request', 'enter', 'leave', 'end']);
+const TRACE_EVENTS = new Set(['request', 'requestParams', 'enter', 'leave', 'end']);
 const HOST_ENV =
   /^(path|systemroot|windir|comspec|pathext|temp|tmp|tmpdir|home|userprofile|localappdata|appdata|lang|lc_all|tz)$/i;
 
@@ -34,7 +34,7 @@ export class ProbeProcessService implements OnModuleDestroy {
     function assertInside(candidatePath: string) {
       const relative = path.relative(project, candidatePath);
       if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative))
-        throw new ProjectException('项目入口超出配置目录', 403);
+        throw new ProjectException('启动入口超出所选项目目录', 403);
     }
     assertInside(candidate);
     let entry: string;

@@ -31,6 +31,12 @@ export interface RouteCatalog {
   warnings: string[];
 }
 
+export interface RequestParameters {
+  path?: unknown;
+  query?: unknown;
+  body?: unknown;
+}
+
 export type AgentEvent = { seq: number } & (
   | { type: 'warning'; message: string }
   | {
@@ -46,7 +52,10 @@ export type AgentEvent = { seq: number } & (
       method: string;
       path: string;
       startedAt: number;
+      requestHeaders?: unknown;
+      parameters?: RequestParameters;
     }
+  | { type: 'requestParams'; requestId: string; parameters: RequestParameters }
   | {
       type: 'enter';
       requestId: string;
@@ -63,7 +72,16 @@ export type AgentEvent = { seq: number } & (
       result: unknown;
       state: 'ok' | 'error';
     }
-  | { type: 'end'; requestId: string; status: number; durationMs: number; dropped: number }
+  | {
+      type: 'end';
+      requestId: string;
+      status: number;
+      durationMs: number;
+      dropped: number;
+      parameters?: RequestParameters;
+      responseHeaders?: unknown;
+      responseBody?: unknown;
+    }
 );
 
 const prefix = '/api/call-graph';

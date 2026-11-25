@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseEnv } from 'node:util';
 import { pathToRegexp } from 'path-to-regexp';
 import ts from 'typescript-compiler';
 import { localProgram } from './analyzer-graph.mjs';
@@ -47,8 +48,8 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
       continue;
     const text = fs.readFileSync(file, 'utf8');
     if (
-      !text.includes('@nestjs/') &&
       !text.includes('NestFactory') &&
+      !text.includes('@') &&
       slash(file) !== slash(sourceEntry ?? '')
     )
       continue;
@@ -70,6 +71,16 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
   }
   const roots = [];
   const settings = [];
+  const declaredControllers = [];
+  const declaredModules = new Map();
+  for (const sf of syntax.values())
+    for (const stmt of sf.statements) {
+      if (!ts.isClassDeclaration(stmt)) continue;
+      for (const d of read.decorators(stmt)) {
+        if (d.name === 'Controller') declaredControllers.push(stmt);
+        if (d.name === 'Module') declaredModules.set(stmt, d.args[0]);
+      }
+    }
   const bootstrapFiles = sourceEntry
     ? [program.getSourceFile(slash(sourceEntry))].filter(Boolean)
     : [...syntax.values()];
@@ -82,14 +93,38 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
       } else if (name.text === 'setGlobalPrefix' || name.text === 'enableVersioning')
         settings.push(node);
     });
+  const envFile = path.join(root, '.env');
+  let routeEnv;
+  function localEnv() {
+    if (routeEnv) return routeEnv;
+    routeEnv = {};
+    try {
+      if (inProject(root, envFile) && fs.statSync(envFile).isFile())
+        routeEnv = parseEnv(fs.readFileSync(envFile, 'utf8'));
+    } catch {
+      warnings.add('无法读取项目 .env 中的路由前缀配置');
+    }
+    return routeEnv;
+  }
   let globalPrefix = '';
+  if (!roots.length && !settings.some((call) => call.expression.name.text === 'setGlobalPrefix')) {
+    globalPrefix = localEnv().GlobalPrefix ?? '';
+    if (globalPrefix)
+      warnings.add('启动入口未显式设置路径前缀，按项目 .env 中的 GlobalPrefix 生成接口路径');
+  }
   let exclusions = [];
   for (const call of settings) {
     if (call.expression.name.text === 'enableVersioning') {
       warn(call, '版本化路由可能需要运行时版本信息');
       continue;
     }
-    const prefixes = read.strings(call.arguments[0]);
+    const arg = read.value(call.arguments[0]);
+    const envKey =
+      arg && ts.isPropertyAccessExpression(arg) && arg.expression.getText() === 'process.env'
+        ? arg.name.text
+        : undefined;
+    const prefixes =
+      envKey && localEnv()[envKey] !== undefined ? [localEnv()[envKey]] : read.strings(arg);
     if (prefixes.length === 1) globalPrefix = prefixes[0];
     else warn(call, '动态全局前缀无法解析，目录显示相对于该前缀的路径');
     exclusions = [];
@@ -125,6 +160,11 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
 
   const modules = new Set();
   const controllerOwners = new Map();
+  let registrationIncomplete = false;
+  function unresolved(node, message) {
+    registrationIncomplete = true;
+    warn(node, message);
+  }
   const mounts = new Map();
   const pending = [];
   function registerMounts(expr, parent = '', seen = new Set()) {
@@ -186,15 +226,18 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
             registerMetadata(owner, metadata, seen);
           } else {
             pending.push(cls);
-            warn(node, '动态模块返回值无法展开，仅分析类上静态声明的控制器和导入');
+            unresolved(node, '动态模块的返回值无法静态展开');
           }
           return;
         }
-        // External framework integrations have no controller bodies inside src.
-        if (externalImport(target)) return;
+        // An external registration factory may load project controllers at runtime.
+        if (externalImport(target)) {
+          registrationIncomplete = true;
+          return;
+        }
       }
     }
-    if (!externalImport(node)) warn(expr, '动态模块导入无法解析');
+    if (!externalImport(node)) unresolved(expr, '动态模块导入无法解析');
   }
   function externalImport(node) {
     const binding = read.symbol(node)?.declarations?.find(ts.isImportSpecifier);
@@ -209,11 +252,7 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
   if (roots.length) {
     for (const rootExpr of roots) enqueue(rootExpr);
   } else {
-    warnings.add('未静态定位 NestFactory.create 入口，当前列出源码模块中显式注册的控制器');
-    for (const sf of syntax.values())
-      for (const stmt of sf.statements)
-        if (ts.isClassDeclaration(stmt) && read.decorators(stmt).some((d) => d.name === 'Module'))
-          pending.push(stmt);
+    pending.push(...declaredModules.keys());
   }
   for (let i = 0; i < pending.length; i++) {
     const cls = pending[i];
@@ -223,22 +262,43 @@ export function collectNestRoutes({ root, source, sourceFiles, sourceEntry }) {
     if (!meta) continue;
     registerMetadata(cls, meta);
   }
+  // Keep explicit mounts. Other decorated controllers may be registered at startup,
+  // except those owned only by a statically disconnected module in a known graph.
+  const inactive = new Set();
+  if (roots.length && !registrationIncomplete) {
+    for (const [module, meta] of declaredModules) {
+      if (modules.has(module)) continue;
+      const controllers = read.member(meta, 'controllers');
+      if (controllers) for (const expr of read.list(controllers)) inactive.add(read.value(expr));
+    }
+  }
+  const candidates = declaredControllers.filter(
+    (c) => !controllerOwners.has(c) && !inactive.has(c),
+  );
+  for (const ctrl of candidates) controllerOwners.set(ctrl, new Set([undefined]));
+  if (candidates.length)
+    warnings.add(
+      '按 @Controller 声明补充了 ' +
+        candidates.length +
+        ' 个控制器，实际注册状态由目标项目启动时决定：' +
+        candidates.map((c) => c.name?.text ?? location(c).file).join('、'),
+    );
   function registerMetadata(cls, meta, seen = new Set()) {
     const obj = read.value(meta);
     if (!obj || !ts.isObjectLiteralExpression(obj) || obj.properties.some(ts.isSpreadAssignment))
-      warn(meta, '动态模块元数据可能包含额外的控制器');
+      unresolved(meta, '动态模块元数据可能包含额外的控制器');
     const controllers = read.member(obj, 'controllers');
     if (controllers)
-      for (const ctrl of read.list(controllers, (n) => warn(n, '动态控制器列表无法展开'))) {
+      for (const ctrl of read.list(controllers, (n) => unresolved(n, '动态控制器列表无法展开'))) {
         const target = read.value(ctrl);
         if (target && ts.isClassDeclaration(target)) {
           if (!controllerOwners.has(target)) controllerOwners.set(target, new Set());
           controllerOwners.get(target).add(cls);
-        } else warn(ctrl, '动态控制器无法解析');
+        } else unresolved(ctrl, '动态控制器无法解析');
       }
     const imports = read.member(obj, 'imports');
     if (imports)
-      for (const item of read.list(imports, (n) => warn(n, '动态模块导入列表无法展开')))
+      for (const item of read.list(imports, (n) => unresolved(n, '动态模块导入列表无法展开')))
         enqueue(item, new Set(seen));
   }
 
