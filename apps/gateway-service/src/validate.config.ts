@@ -103,7 +103,7 @@ export class GatewayConfig extends CommonConfig {
     return {
       discoveryOnly,
       registryUrl: discoveryOnly ? getConfig<string[]>(ConfigKeys.RegistryUrl) : undefined,
-      controlPlaneToken: getConfig<string>(ConfigKeys.ControlPlaneToken, '', false),
+      controlPlaneToken: getConfig<string | string[]>(ConfigKeys.ControlPlaneToken, '', false),
       syncInterval: getConfig<number>('GatewayRegistrySyncMs'),
     };
   }
