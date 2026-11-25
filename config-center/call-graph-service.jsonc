@@ -1,0 +1,14 @@
+{
+  // 服务 API 的公共路由前缀，例如 api 对应 /api。
+  "GlobalPrefix": "api",
+  // 当前实例的 HTTP 监听端口。同机运行多个实例时，可在各自的 .env 中覆盖。
+  "Port": 3500,
+  // 浏览器保存会话 ID 的 Cookie 名称。共享登录态的服务需使用相同名称。
+  "SessionCookieName": "solacloud.local.sid",
+  // Redis 中会话键的前缀。共享登录态的服务需使用相同前缀。
+  "SessionKeyPrefix": "solacloud-local:session",
+  // 会话存储的 Redis 连接地址。共享登录态的服务需连接同一实例和逻辑库。
+  "SessionRedisUrl": "redis://127.0.0.1:6379/2",
+  // 会话 Cookie 签名密钥。共享登录态的服务需使用同一密钥。
+  "SessionSecret": ""
+}
