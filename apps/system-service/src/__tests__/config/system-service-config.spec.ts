@@ -11,7 +11,7 @@ describe('SystemServiceConfig', () => {
       {
         ServiceName: 'system-service',
         Port: '3200',
-        RegistryUrl: 'http://localhost:3001',
+        RegistryUrl: ['http://localhost:3001'],
         DbDriver: 'postgres',
         DbHost: 'localhost',
         DbPort: '5432',

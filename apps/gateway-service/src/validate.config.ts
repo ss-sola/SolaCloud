@@ -1,6 +1,15 @@
 import { CommonConfig, ConfigKeys, getConfig } from '@nest-cloud/sdk';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsString, IsUrl, Min, ValidateIf } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsString,
+  ArrayNotEmpty,
+  IsArray,
+  IsUrl,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { isIP } from 'node:net';
 import { GATEWAY_DEFAULTS, GATEWAY_MODE, UPSTREAM } from './constants/gateway.constants';
 
@@ -24,8 +33,10 @@ export class GatewayConfig extends CommonConfig {
   GatewayUpstreamMode: (typeof GATEWAY_MODE)[keyof typeof GATEWAY_MODE] = GATEWAY_MODE.static;
 
   @ValidateIf((config: GatewayConfig) => config.GatewayUpstreamMode === GATEWAY_MODE.registry)
-  @IsUrl(httpUrl)
-  RegistryUrl?: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUrl(httpUrl, { each: true })
+  RegistryUrl?: string[];
 
   @IsUrl(httpUrl)
   GatewaySystemUrl: string = GATEWAY_DEFAULTS.systemUrl;
@@ -91,9 +102,7 @@ export class GatewayConfig extends CommonConfig {
     const discoveryOnly = this.useRegistry();
     return {
       discoveryOnly,
-      registryUrl: discoveryOnly
-        ? this.origin(getConfig<string>(ConfigKeys.RegistryUrl)).origin
-        : '',
+      registryUrl: discoveryOnly ? getConfig<string[]>(ConfigKeys.RegistryUrl) : undefined,
       controlPlaneToken: getConfig<string>(ConfigKeys.ControlPlaneToken, '', false),
       syncInterval: getConfig<number>('GatewayRegistrySyncMs'),
     };
