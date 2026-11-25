@@ -2,6 +2,7 @@ import path from 'node:path';
 import ts from 'typescript-compiler';
 import { inProject, unwrapped } from './analyzer-source.mjs';
 import { functionMetadata } from './function-metadata.mjs';
+import { queueGraph } from './analyzer-queue-graph.mjs';
 import {
   compilerLibrary,
   markComputations,
@@ -14,7 +15,7 @@ const MAX_NODES = 1200;
 const MAX_EDGES = 4800;
 const slash = (file) => file.replaceAll('\\', '/');
 
-export function localProgram(root, syntax) {
+export function localProgram(root, syntax, additionalEntries = []) {
   const options = {
     module: ts.ModuleKind.NodeNext,
     moduleResolution: ts.ModuleResolutionKind.NodeNext,
@@ -52,7 +53,7 @@ export function localProgram(root, syntax) {
       return;
     return syntax.get(slash(file)) ?? originalRead(file, ...args);
   };
-  return ts.createProgram([...syntax.keys()], options, host);
+  return ts.createProgram([...syntax.keys(), ...additionalEntries], options, host);
 }
 
 function executable(node) {
@@ -109,6 +110,7 @@ export function graphBuilder(root, syntax, catalog, program = localProgram(root,
     visit(fn.body);
     return values;
   }
+  const findQueue = queueGraph(program, { declaration, callee, returned });
   return (registrations, rootsOnly = false) => {
     const nodes = new Map();
     const roots = new Set();
@@ -118,6 +120,26 @@ export function graphBuilder(root, syntax, catalog, program = localProgram(root,
     const expanded = new Set();
     const blocked = new Set();
     let truncated = false;
+    function addEdge(from, to) {
+      const key = from + '\n' + to;
+      if (edges.has(key)) return;
+      if (edges.size < MAX_EDGES) edges.set(key, { from, to });
+      else {
+        truncated = true;
+        warnings.add('静态图达到 ' + MAX_EDGES + ' 条调用关系上限');
+      }
+    }
+    function addQueueNode(node, parent) {
+      if (!nodes.has(node.id) && nodes.size >= MAX_NODES) {
+        truncated = true;
+        warnings.add('静态图达到 ' + MAX_NODES + ' 个方法上限');
+        return false;
+      }
+      nodes.set(node.id, node);
+      blocked.add(node.id);
+      addEdge(parent, node.id);
+      return true;
+    }
     function add(fn, parent, bindings) {
       const sf = fn.getSourceFile();
       const file = slash(path.relative(root, sf.fileName));
@@ -168,11 +190,7 @@ export function graphBuilder(root, syntax, catalog, program = localProgram(root,
         }
       }
       if (!parent) roots.add(id);
-      else if (edges.size < MAX_EDGES) edges.set(parent + '\n' + id, { from: parent, to: id });
-      else {
-        truncated = true;
-        warnings.add('静态图达到 ' + MAX_EDGES + ' 条调用关系上限');
-      }
+      else addEdge(parent, id);
     }
     function callBindings(fn, args, inherited) {
       const mapped = new Map(inherited);
@@ -264,6 +282,18 @@ export function graphBuilder(root, syntax, catalog, program = localProgram(root,
         }
         if (!blocked.has(id) && requiresRuntime(node, checker)) blocked.add(id);
         if (ts.isCallExpression(node)) {
+          const link = findQueue(node, bindings);
+          if (
+            link &&
+            addQueueNode(link.enqueue, id) &&
+            link.callbacks.length &&
+            addQueueNode(link.worker, link.enqueue.id)
+          ) {
+            for (const callback of link.callbacks) {
+              const processor = resolve(callback, new Map());
+              if (processor) add(processor, link.worker.id, new Map());
+            }
+          }
           const child = callee(node, bindings);
           if (!blocked.has(id)) {
             const decl = declaration(node.expression);

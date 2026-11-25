@@ -24,6 +24,10 @@ export const maxVisibleRequests = 24;
 export const maxProjectRequests = 96;
 export const emptyRecording = (): Recording => ({ requests: new Map() });
 
+function hasOpenQueueCall(call: Invocation) {
+  return !call.exit && (call.node.kind === 'queue' || call.queueAnchor !== undefined);
+}
+
 // Copy each touched request once per batch, even when a whole recorded stream is replayed.
 export function applyEvents(previous: Recording, events: AgentEvent[]): Recording {
   const next = { ...previous, requests: new Map(previous.requests) };
@@ -55,8 +59,12 @@ export function applyEvents(previous: Recording, events: AgentEvent[]): Recordin
             ? all
             : undefined;
       // Retire a finished request first so slow parallel requests retain their open calls.
-      if (overLimit)
-        next.requests.delete((overLimit.find((item) => item.end) ?? overLimit[0]).requestId);
+      if (overLimit) {
+        const finished = overLimit.find(
+          (item) => item.end && ![...item.calls.values()].some(hasOpenQueueCall),
+        );
+        next.requests.delete((finished ?? overLimit[0]).requestId);
+      }
       continue;
     }
     let request = next.requests.get(event.requestId);
@@ -137,8 +145,8 @@ export function describeCalls(
   const nearestVisible = new Map<string, string | null>();
   const extra = new Map<string, MethodNode>();
   const known = new Set(graph.nodes.map((node) => node.id));
-  const finished = interrupted || Boolean(request?.end);
   for (const call of request?.calls.values() ?? []) {
+    const finished = interrupted || Boolean(request?.end && !hasOpenQueueCall(call));
     const list = byNode.get(call.node.id) ?? [];
     list.push(call);
     byNode.set(call.node.id, list);

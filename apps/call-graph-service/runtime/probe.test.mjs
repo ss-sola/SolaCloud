@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { fork } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -414,3 +415,28 @@ test(
       });
   },
 );
+
+for (const optionForm of [true, false]) {
+  test('目标端口被占用时切换到空闲端口 (' + (optionForm ? 'options' : 'port') + ')', async (t) => {
+    const incumbent = createServer((_req, res) => res.end('original'));
+    incumbent.listen(0, '127.0.0.1');
+    await once(incumbent, 'listening');
+    t.after(() => incumbent.close());
+    const port = incumbent.address().port;
+    const args = optionForm ? '{port:' + port + ",host:'127.0.0.1'}" : port + ",'127.0.0.1'";
+    const fixture = `
+      import http from 'node:http';
+      let callbacks = 0;
+      async function handler() { return String(callbacks); }
+      http.createServer(async (_req, res) => res.end(await handler()))
+        .listen(${args}, () => { callbacks++; });
+    `;
+    const { address, events } = await startFixture(t, fixture);
+    assert.notEqual(Number(new URL(address).port), port);
+    assert.ok(
+      events.some((event) => event.type === 'warning' && event.message.includes(String(port))),
+    );
+    assert.equal(await (await fetch(address + '/items/1')).text(), '1');
+    assert.equal(await (await fetch('http://127.0.0.1:' + port)).text(), 'original');
+  });
+}

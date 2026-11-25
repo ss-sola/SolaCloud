@@ -184,6 +184,12 @@ export function ApiCallGraphPage() {
       {probe.busy ? '处理中…' : probe.active ? '停止探针' : '启动探针'}
     </button>
   );
+  const workerEntries = catalog?.workerEntries ?? [];
+  const workerDiscovery = workerEntries.length > 0 && (
+    <p className="small text-secondary mb-0" title={workerEntries.join('\n')}>
+      已识别 {workerEntries.length} 个独立 BullMQ Worker 入口
+    </p>
+  );
   const probeStatus = (
     <>
       {probe.recording.warnings && (
@@ -281,7 +287,12 @@ export function ApiCallGraphPage() {
           探针运行期间可切换本项目接口。停止探针后可更换项目。
         </p>
       )}
-      {!selected && probeStatus}
+      {!selected && (
+        <>
+          {workerDiscovery}
+          {probeStatus}
+        </>
+      )}
       <Warnings warnings={catalog?.warnings} />
       {catalog && project.trim() === scannedProject && (
         <aside className={styles.catalog} aria-label="接口列表">
@@ -406,6 +417,8 @@ export function ApiCallGraphPage() {
               </p>
             )}
             <Warnings warnings={graph?.warnings} />
+            {workerDiscovery}
+            {selected && <Warnings warnings={catalog?.warnings} />}
             {probeStatus}
             {request && (
               <div className={styles.requests}>

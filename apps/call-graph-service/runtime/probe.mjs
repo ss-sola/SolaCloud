@@ -13,6 +13,7 @@ import { SNAPSHOT_VALUES_PER_CALL, isKoaContext, koaBody, snapshot } from './pro
 import { createRouteMatcher, matchRouteRoot } from './probe-routes.mjs';
 import { observeHttpRequest, requestPath } from './probe-http-request.mjs';
 import { observeHttpResponse } from './probe-http-response.mjs';
+import { installBullMqHook } from './probe-bullmq.mjs';
 
 const LIMIT = { args: 20, requests: 12 };
 const EVENTS_PER_PACKET = 32;
@@ -56,11 +57,14 @@ function projectSender() {
 
 function capture(value, budget, field, trace) {
   try {
-    return trace.httpRequest.protectArgument(
-      value,
-      snapshot(value, budget, field),
-      trace.displayPath === trace.pathname ? undefined : trace.displayPath,
-    );
+    const recorded = snapshot(value, budget, field);
+    return trace.httpRequest
+      ? trace.httpRequest.protectArgument(
+          value,
+          recorded,
+          trace.displayPath === trace.pathname ? undefined : trace.displayPath,
+        )
+      : recorded;
   } catch {
     return '[无法快照]';
   }
@@ -124,7 +128,7 @@ function createObserver(send, legacy, limits) {
       return context.run({ trace, inHandler: true }, execute, ...locals);
     }
     const requestId = trace.id;
-    const callId = String(++trace.count);
+    const callId = (trace.callPrefix ?? '') + String(++trace.count);
     const budget = { left: valueLimit, limit: valueLimit };
     const values = [];
     for (let i = 0; i < Math.min(args.length, LIMIT.args); i++) {
@@ -140,6 +144,7 @@ function createObserver(send, legacy, limits) {
       file: meta.file,
       line: meta.line,
       anonymous: meta.anonymous,
+      kind: meta.kind,
     };
     send({
       type: 'enter',
@@ -149,12 +154,20 @@ function createObserver(send, legacy, limits) {
       parentId: parent.callId,
       node,
       args: values,
+      queueAnchor: trace.queueAnchor,
     });
     const start = performance.now();
     function finish(state, value) {
-      if (trace.closed) return;
+      if (trace.closed && meta.kind !== 'queue') return;
       const durationMs = performance.now() - start;
-      let result = capture(value, budget, state === 'ok' ? meta.name : '', trace);
+      let displayValue = value;
+      if (meta.kind === 'queue' && state === 'ok' && value && !types.isProxy(value)) {
+        displayValue = {
+          jobId: Object.getOwnPropertyDescriptor(value, 'id')?.value,
+          jobName: Object.getOwnPropertyDescriptor(value, 'name')?.value,
+        };
+      }
+      let result = capture(displayValue, budget, state === 'ok' ? meta.name : '', trace);
       // 微助教通过 ctx.body 返回响应，处理器通常仅返回 Promise<void>。
       if (state === 'ok' && value === undefined) {
         try {
@@ -168,7 +181,16 @@ function createObserver(send, legacy, limits) {
           /* 业务对象可能在执行过程中失效。 */
         }
       }
-      send({ type: 'leave', requestId, callId, durationMs, result, state });
+      send({
+        type: 'leave',
+        requestId,
+        callId,
+        durationMs,
+        result,
+        state,
+        queueAnchor: trace.queueAnchor,
+      });
+      if (meta.kind === 'worker') trace.closed = true;
     }
     let result;
     try {
@@ -207,23 +229,100 @@ function createObserver(send, legacy, limits) {
   };
 }
 
-function install(routes, legacy, limits = {}, framework, entry) {
+function install(routes, legacy, limits = {}, framework, entry, queueKey, workerOnly) {
   const matchRequest = createRouteMatcher(routes, framework);
   const send = legacy
     ? (event) => {
         if (process.connected) process.send(event);
       }
     : projectSender();
-  Object.defineProperty(globalThis, runtimeKey, { value: createObserver(send, legacy, limits) });
+  const observer = createObserver(send, legacy, limits);
+  Object.defineProperty(globalThis, runtimeKey, { value: observer });
+  const routesById = new Map(routes.map((route) => [route.id, route]));
+  installBullMqHook({
+    key: queueKey,
+    currentLink() {
+      const current = context.getStore();
+      if (!current?.inHandler || current.trace.closed || typeof current.callId !== 'string') return;
+      return {
+        requestId: current.trace.id,
+        routeId: current.trace.route.id,
+        parentId: current.callId,
+      };
+    },
+    observeQueue: observer.invoke,
+    observeWorker(link, meta, args, execute) {
+      const route = routesById.get(link.routeId);
+      if (!route) return execute();
+      const trace = {
+        id: link.requestId,
+        route,
+        count: 0,
+        dropped: 0,
+        closed: false,
+        callPrefix: randomUUID() + ':',
+        queueAnchor: link.parentId,
+      };
+      return context.run({ trace, callId: link.parentId, inHandler: true }, () =>
+        observer.invoke(meta, args, execute),
+      );
+    },
+    warn: (message) => {
+      if (process.connected) process.send({ type: 'warning', message });
+    },
+  });
   let active = 0;
+  let listening = false;
+  const pendingListens = new WeakMap();
   function observeServer(prototype) {
     const original = prototype.emit;
+    const listen = prototype.listen;
+    prototype.listen = function (...args) {
+      if (!listening) pendingListens.set(this, { args });
+      return Reflect.apply(listen, this, args);
+    };
     prototype.emit = function emit(event, ...args) {
       const dispatch = () => Reflect.apply(original, this, [event, ...args]);
+      const pending = pendingListens.get(this);
+      if (event === 'error' && !listening && pending && !pending.conflict) {
+        const error = args[0];
+        if (error?.code === 'EADDRINUSE' && error.syscall === 'listen' && error.port > 0) {
+          const [target, ...rest] = pending.args;
+          let retry;
+          if (
+            target &&
+            typeof target === 'object' &&
+            Number(target.port) === error.port &&
+            !target.path
+          ) {
+            retry = [{ ...target, port: 0 }];
+          } else if (
+            (typeof target === 'number' || typeof target === 'string') &&
+            Number(target) === error.port
+          ) {
+            retry = [0, ...rest.filter((value) => typeof value !== 'function')];
+          }
+          if (retry) {
+            pending.conflict = error.port;
+            // Node retains the initial listening callback when the bind fails.
+            Reflect.apply(listen, this, retry);
+            return true;
+          }
+        }
+      }
       if (event === 'listening') {
         const address = this.address();
-        if (address?.port && process.connected)
+        pendingListens.delete(this);
+        if (address?.port && process.connected) {
+          listening = true;
+          if (pending?.conflict)
+            process.send({
+              type: 'warning',
+              message:
+                '目标端口 ' + pending.conflict + ' 已被占用，探针改用端口 ' + address.port + '。',
+            });
           process.send({ type: 'listening', port: address.port });
+        }
       }
       if (event !== 'request') return dispatch();
       const [req, res] = args;
@@ -291,8 +390,10 @@ function install(routes, legacy, limits = {}, framework, entry) {
       return context.run({ trace, callId: null }, dispatch);
     };
   }
-  observeServer(HttpServer.prototype);
-  observeServer(HttpsServer.prototype);
+  if (!workerOnly) {
+    observeServer(HttpServer.prototype);
+    observeServer(HttpsServer.prototype);
+  }
   const project = realpathSync(process.cwd());
   const source = path.join(project, 'src');
   if (framework === 'nestjs') {
@@ -316,7 +417,15 @@ if (
         else reject(new Error('未收到项目探针的路由配置'));
       });
     });
-    install(config.routes, false, config.limits, config.framework, config.entry);
+    install(
+      config.routes,
+      false,
+      config.limits,
+      config.framework,
+      config.entry,
+      config.queueKey,
+      config.workerOnly,
+    );
   } else {
     const route = JSON.parse(process.env.SOLA_CALL_GRAPH_ROUTE);
     delete process.env.SOLA_CALL_GRAPH_ROUTE;

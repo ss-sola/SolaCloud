@@ -15,6 +15,7 @@ export interface MethodNode {
   line: number;
   anonymous?: boolean;
   computationOnly?: boolean;
+  kind?: 'queue' | 'worker';
 }
 
 export interface MethodGraph {
@@ -27,6 +28,7 @@ export interface MethodGraph {
 export interface RouteCatalog {
   framework?: 'koa' | 'nestjs' | 'unknown';
   entry?: string;
+  workerEntries?: string[];
   routes: ProjectRoute[];
   warnings: string[];
 }
@@ -63,6 +65,7 @@ export type AgentEvent = { seq: number } & (
       parentId: string | null;
       node: MethodNode;
       args: unknown;
+      queueAnchor?: string;
     }
   | {
       type: 'leave';

@@ -194,3 +194,69 @@ test('按已安装的 CopilotKit 版本和实际挂载地址展开，未知版�
   );
   assert.ok(future.warnings.length);
 });
+
+test('静态调用图把惰性创建的 BullMQ 队列和独立 Worker 接到入队方法，忽略普通 add', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sola-bullmq-graph-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'src'));
+  const write = (file, source) => fs.writeFileSync(path.join(root, file), source);
+  write(
+    'package.json',
+    JSON.stringify({
+      type: 'module',
+      dependencies: { koa: '3' },
+      scripts: { 'start:worker': 'node src/processor.mjs' },
+    }),
+  );
+  write(
+    'src/queue.ts',
+    `
+    import { Queue as BullQueue } from 'bullmq';
+    export const Names = Object.freeze({ Archive: 'archive' });
+    let queue;
+    export function getQueue() {
+      if (!queue) queue = new BullQueue(Names.Archive).on('error', () => {});
+      return queue;
+    }
+  `,
+  );
+  write(
+    'src/api.ts',
+    `
+    import Router from '@koa/router';
+    import { getQueue } from './queue.ts';
+    const router = new Router();
+    const job = 'zip';
+    class ExportService {
+      static async submit() {
+        new Set().add(job);
+        await getQueue().add(job, {});
+      }
+    }
+    router.get('/archive', () => ExportService.submit());
+  `,
+  );
+  write(
+    'src/processor.mjs',
+    `
+    import * as bull from 'bullmq';
+    async function packageArchive() {}
+    new bull.Worker('archive', async () => packageArchive());
+    new bull.Worker('another', async () => unrelated());
+    async function unrelated() {}
+  `,
+  );
+  const graph = createAnalyzer(root).graph('GET /archive');
+  const id = (name) => graph.nodes.find((node) => node.name === name)?.id;
+  const queue = graph.nodes.find((node) => node.kind === 'queue');
+  const worker = graph.nodes.find((node) => node.kind === 'worker');
+  assert.equal(queue?.name, 'BullMQ 入队 · archive / zip');
+  assert.equal(worker?.name, 'BullMQ Worker · archive / zip · 第 1 次');
+  assert.ok(
+    graph.edges.some((edge) => edge.from === id('ExportService.submit') && edge.to === queue.id),
+  );
+  assert.ok(graph.edges.some((edge) => edge.from === queue.id && edge.to === worker.id));
+  const handler = graph.edges.find((edge) => edge.from === worker.id)?.to;
+  assert.ok(graph.edges.some((edge) => edge.from === handler && edge.to === id('packageArchive')));
+  assert.ok(!id('unrelated'));
+});

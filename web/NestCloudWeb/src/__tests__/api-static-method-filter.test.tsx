@@ -191,3 +191,128 @@ it('locates a shared descendant through consecutive group and manual exclusions 
     ui.getAllByRole('button', { name: /^展开 (handle|findVersion) 的下游方法$/ }),
   ).toHaveLength(1);
 });
+
+it.each([false, true])(
+  'shows the live BullMQ child branch after HTTP ends (static branch %s)',
+  (staticBranch) => {
+    const queue = { ...method('enqueue'), name: 'BullMQ 入队', kind: 'queue' } as const;
+    const worker = { ...method('worker'), name: 'BullMQ Worker', kind: 'worker' } as const;
+    const task = method('processTask');
+    const callback = { ...method('processorCallback'), anonymous: true };
+    const workerGraph = staticBranch
+      ? {
+          ...graph,
+          nodes: [...graph.nodes, queue, worker, callback, task],
+          edges: [
+            ...graph.edges,
+            { from: root.id, to: queue.id },
+            { from: queue.id, to: worker.id },
+            { from: worker.id, to: callback.id },
+            { from: callback.id, to: task.id },
+          ],
+        }
+      : graph;
+    const ui = render(<ApiMethodDiagram route={route} graph={workerGraph} interrupted={false} />);
+    const edge = (from: string, to: string) =>
+      ui.container.querySelector(`[data-from="${from}"][data-to="${to}"]`);
+    const idle = staticBranch ? 'idle' : undefined;
+    expect(edge(root.id, queue.id)?.getAttribute('data-state')).toBe(idle);
+    expect(edge(queue.id, worker.id)?.getAttribute('data-state')).toBe(idle);
+    expect(edge(worker.id, task.id)?.getAttribute('data-state')).toBe(idle);
+    expect(ui.queryByRole('button', { name: /^processorCallback，/ })).toBeNull();
+    const traced = applyEvents(emptyRecording(), [
+      { seq: 1, type: 'request', requestId: 'req', method: 'GET', path: '/version', startedAt: 1 },
+      {
+        seq: 2,
+        type: 'enter',
+        requestId: 'req',
+        callId: 'r',
+        parentId: null,
+        node: root,
+        args: [],
+      },
+      {
+        seq: 3,
+        type: 'enter',
+        requestId: 'req',
+        callId: 'q',
+        parentId: 'r',
+        node: queue,
+        args: [],
+      },
+      {
+        seq: 4,
+        type: 'leave',
+        requestId: 'req',
+        callId: 'q',
+        durationMs: 3,
+        result: {},
+        state: 'ok',
+      },
+      { seq: 5, type: 'end', requestId: 'req', status: 200, durationMs: 5, dropped: 0 },
+      {
+        seq: 6,
+        type: 'enter',
+        requestId: 'req',
+        callId: 'w',
+        parentId: 'q',
+        queueAnchor: 'q',
+        node: worker,
+        args: [],
+      },
+      {
+        seq: 7,
+        type: 'enter',
+        requestId: 'req',
+        callId: 't',
+        parentId: 'w',
+        queueAnchor: 'q',
+        node: task,
+        args: [],
+      },
+    ]);
+    ui.rerender(
+      <ApiMethodDiagram
+        route={route}
+        graph={workerGraph}
+        request={traced.requests.get('req')}
+        interrupted={false}
+      />,
+    );
+    expect(ui.getAllByRole('button', { name: /^BullMQ Worker，/ })).toHaveLength(1);
+    expect(edge(queue.id, worker.id)).toHaveAttribute('data-state', 'running');
+    expect(edge(worker.id, task.id)).toHaveAttribute('data-state', 'running');
+    expect(ui.queryByRole('checkbox', { name: /显示探针补充的方法/ })).toBeNull();
+    const finished = applyEvents(traced, [
+      {
+        seq: 8,
+        type: 'leave',
+        requestId: 'req',
+        callId: 't',
+        durationMs: 8,
+        result: 6,
+        state: 'ok',
+      },
+      {
+        seq: 9,
+        type: 'leave',
+        requestId: 'req',
+        callId: 'w',
+        durationMs: 9,
+        result: 6,
+        state: 'ok',
+      },
+    ]);
+    ui.rerender(
+      <ApiMethodDiagram
+        route={route}
+        graph={workerGraph}
+        request={finished.requests.get('req')}
+        interrupted={false}
+      />,
+    );
+    expect(edge(queue.id, worker.id)).toHaveAttribute('data-state', 'completed');
+    fireEvent.click(ui.getByRole('button', { name: 'BullMQ Worker，已返回' }));
+    expect(ui.getByRole('region', { name: '方法详情' })).toHaveTextContent('9 ms');
+  },
+);
