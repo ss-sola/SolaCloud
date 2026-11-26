@@ -62,6 +62,51 @@ function eventsFor(requestId: string) {
 }
 
 describe('真实调用状态投影', () => {
+  it('单请求包含 300 个不同方法时，过滤后重复调用仍保留第 150 和第 301 两个序号', () => {
+    const nodes = Array.from({ length: 300 }, (_, i) => node('method' + (i + 1)));
+    const root = nodes[0].id;
+    const repeated = nodes[149].id;
+    const graph: MethodGraph = {
+      nodes,
+      roots: [root],
+      edges: nodes.slice(1).map(({ id }) => ({ from: root, to: id })),
+      warnings: [],
+    };
+    const e = eventsFor('large');
+    const recording = applyEvents(emptyRecording(), [
+      e.start(),
+      ...nodes.map(({ id }, i) => e.enter(id, i ? root : null, id)),
+      e.enter('again', root, repeated),
+    ]);
+    const request = recording.requests.get('large');
+    const projected = describeCalls(graph, request, new Set([root, repeated]));
+    expect(request?.calls.size).toBe(301);
+    expect(projected.byNode.size).toBe(300);
+    expect(projected.byNode.get(repeated)?.map((call) => call.requestOrder)).toEqual([150, 301]);
+    expect([...projected.observedEdges.values()]).toEqual([{ from: root, to: repeated }]);
+  });
+
+  it('同一请求只为首次收到的进入事件编号，重复调用、乱序返回和重放保留原序号', () => {
+    const e = eventsFor('r');
+    const enters = [
+      e.start(),
+      e.enter('root', null, 'A'),
+      e.enter('first-b', 'root', 'B'),
+      e.enter('c', 'root', 'C'),
+    ];
+    const initial = applyEvents(emptyRecording(), enters);
+    const recorded = applyEvents(initial, [
+      ...enters,
+      e.leave('c'),
+      e.leave('first-b'),
+      e.enter('worker:retry', 'root', 'B'),
+    ]);
+    const { byNode } = describeCalls(graph, recorded.requests.get('r'));
+    expect(byNode.get('A')?.map((call) => call.requestOrder)).toEqual([1]);
+    expect(byNode.get('B')?.map((call) => call.requestOrder)).toEqual([2, 4]);
+    expect(byNode.get('C')?.map((call) => call.requestOrder)).toEqual([3]);
+  });
+
   it('入口边按真实调用实例穿过无名及隐藏方法，保留缺失祖先与真实根的区别', () => {
     const e = eventsFor('r');
     const recording = applyEvents(emptyRecording(), [

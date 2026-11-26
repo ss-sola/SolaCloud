@@ -316,3 +316,83 @@ it.each([false, true])(
     expect(ui.getByRole('region', { name: '方法详情' })).toHaveTextContent('9 ms');
   },
 );
+
+it('按当前请求组合过滤未执行方法和耗时，保留边界值及执行中的调用', () => {
+  const start = {
+    seq: 1,
+    type: 'request' as const,
+    requestId: 'r',
+    method: 'GET',
+    path: '/version',
+    startedAt: 0,
+  };
+  const enter = (seq: number, node: MethodNode) => ({
+    seq,
+    type: 'enter' as const,
+    requestId: 'r',
+    callId: String(seq),
+    parentId: null,
+    node,
+    args: [],
+  });
+  const leave = (seq: number, id: number, durationMs: number) => ({
+    seq,
+    type: 'leave' as const,
+    requestId: 'r',
+    callId: String(id),
+    state: 'ok' as const,
+    result: null,
+    durationMs,
+  });
+  const request = applyEvents(emptyRecording(), [
+    start,
+    enter(2, root),
+    leave(3, 2, 250),
+    enter(4, root),
+    leave(5, 4, 10),
+    enter(6, sibling),
+    leave(7, 6, 249),
+    enter(8, helper),
+  ]).requests.get('r');
+  const diagram = (req = request) => (
+    <ApiMethodDiagram route={route} graph={graph} request={req} interrupted={false} />
+  );
+  const ui = render(diagram());
+  fireEvent.click(ui.getByRole('button', { name: /过滤方法/ }));
+  fireEvent.click(ui.getByRole('switch', { name: '过滤静态方法' }));
+  const duration = ui.getByRole('spinbutton', { name: '最短执行时间（秒）' });
+  const hidden = (node: MethodNode) =>
+    ui.getByRole('checkbox', { name: new RegExp('隐藏 ' + node.name) });
+  fireEvent.change(duration, { target: { value: '0.25' } });
+  expect(hidden(root)).not.toBeChecked();
+  expect(hidden(sibling)).toBeChecked();
+  expect(hidden(helper)).not.toBeChecked();
+  expect(hidden(leaf)).not.toBeChecked();
+  fireEvent.click(ui.getByRole('switch', { name: '过滤未执行方法' }));
+  expect(hidden(leaf)).toBeChecked();
+  ui.rerender(
+    diagram(
+      applyEvents(emptyRecording(), [{ ...start, requestId: 'other' }]).requests.get('other'),
+    ),
+  );
+  expect(hidden(root)).toBeChecked();
+  fireEvent.click(ui.getByRole('button', { name: '清除过滤' }));
+  expect(duration).toHaveValue(null);
+  expect(hidden(root)).not.toBeChecked();
+});
+
+it('点击投影连线只高亮当前两端，切换连线或按 Escape 时更新高亮', () => {
+  const ui = render(<ApiMethodDiagram route={route} graph={graph} interrupted={false} />);
+  const endpoints = () =>
+    Array.from(ui.container.querySelectorAll('[data-endpoint]'), (node) =>
+      node.getAttribute('aria-label'),
+    );
+  const edge = (name: string) => ui.getByRole('button', { name: '调用连线：' + name });
+  fireEvent.click(edge('handle → compareVersion'));
+  expect(endpoints().sort()).toEqual(['compareVersion，待采集', 'handle，待采集']);
+  const second = edge('findVersion → compareVersion');
+  fireEvent.keyDown(second, { key: 'Enter' });
+  expect(endpoints().sort()).toEqual(['compareVersion，待采集', 'findVersion，待采集']);
+  fireEvent.keyDown(second, { key: 'Escape' });
+  expect(endpoints()).toEqual([]);
+});

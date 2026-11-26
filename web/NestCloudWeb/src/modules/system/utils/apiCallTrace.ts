@@ -2,6 +2,7 @@ import type { AgentEvent, MethodGraph, MethodNode } from '../api/apiCallGraph';
 import { layoutCallBranches } from './apiCallBranchLayout';
 
 export type Invocation = Extract<AgentEvent, { type: 'enter' }> & {
+  requestOrder: number;
   exit?: Extract<AgentEvent, { type: 'leave' }>;
 };
 export type RecordedRequest = Extract<AgentEvent, { type: 'request' }> & {
@@ -77,8 +78,9 @@ export function applyEvents(previous: Recording, events: AgentEvent[]): Recordin
     if ((event.type === 'requestParams' || event.type === 'end') && event.parameters)
       request.parameters = { ...request.parameters, ...event.parameters };
     if (event.type === 'end') request.end = event;
-    if (event.type === 'enter' && !request.calls.has(event.callId))
-      request.calls.set(event.callId, event);
+    if (event.type === 'enter' && !request.calls.has(event.callId)) {
+      request.calls.set(event.callId, { ...event, requestOrder: request.calls.size + 1 });
+    }
     if (event.type === 'leave') {
       const call = request.calls.get(event.callId);
       if (call) request.calls.set(call.callId, { ...call, exit: event });

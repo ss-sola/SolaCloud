@@ -25,6 +25,19 @@ import { prepareCallConnectors } from '../utils/apiCallConnector';
 const entry: MethodNode = { id: httpEntryId, name: 'HTTP 入口', file: '', line: 0 };
 type Topology = Pick<MethodGraph, 'roots' | 'nodes' | 'edges'>;
 
+function previewCallOrder(calls: Invocation[] | undefined, width: number) {
+  if (!calls?.length) return '';
+  const labels = calls.slice(0, 3).map((call) => '#' + call.requestOrder);
+  // Reserve room for the ellipsis on narrow cards, including multi-digit ordinals.
+  while (
+    labels.length > 1 &&
+    (labels.join(' ').length + (labels.length < calls.length ? 2 : 0)) * 7 > width
+  ) {
+    labels.pop();
+  }
+  return labels.join(' ') + (labels.length < calls.length ? ' …' : '');
+}
+
 function sameTopology(a: Topology, b: Topology) {
   return (
     a === b ||
@@ -98,10 +111,17 @@ export function ApiMethodDiagram({
   const world = useRef<SVGGElement>(null);
   const consumedReturns = useRef(liveReturns);
   const [selectedId, select] = useState<string>();
+  const [edgeSelection, setEdgeSelection] = useState<{
+    key: string;
+    requestId?: string;
+    routeId?: string;
+  }>();
   const [showExtras, setShowExtras] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButton = useRef<HTMLButtonElement>(null);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(() => new Set());
+  const [hideUnexecuted, setHideUnexecuted] = useState(false);
+  const [minimumSeconds, setMinimumSeconds] = useState('');
   const [hideStatic, setHideStatic] = useState(true);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const [pendingLocate, setPendingLocate] = useState<string>();
@@ -137,9 +157,29 @@ export function ApiMethodDiagram({
     [showExtras, named.length, queueNodes, extraNodes],
   );
   const candidates = useMemo(() => [...named, ...additionalNodes], [named, additionalNodes]);
+  const runtimeFilterActive = hideUnexecuted || Number(minimumSeconds) > 0;
+  const durationByMethod = useMemo(() => {
+    if (!request || !runtimeFilterActive) return;
+    const durations = new Map<string, number>();
+    for (const { node, exit } of request.calls.values()) {
+      // Keep a method visible while any invocation still has an unknown duration.
+      const duration = exit?.durationMs ?? Infinity;
+      durations.set(node.id, Math.max(durations.get(node.id) ?? 0, duration));
+    }
+    return durations;
+  }, [request, runtimeFilterActive]);
+  const automaticallyHidden = useCallback(
+    (node: MethodNode) => {
+      if (hideStatic && node.computationOnly === true) return true;
+      if (!durationByMethod) return false;
+      const duration = durationByMethod.get(node.id);
+      return duration === undefined ? hideUnexecuted : duration < Number(minimumSeconds) * 1000;
+    },
+    [hideStatic, durationByMethod, hideUnexecuted, minimumSeconds],
+  );
   const isVisible = useCallback(
-    (node: MethodNode) => !excluded.has(node.id) && !(hideStatic && node.computationOnly === true),
-    [excluded, hideStatic],
+    (node: MethodNode) => !excluded.has(node.id) && !automaticallyHidden(node),
+    [excluded, automaticallyHidden],
   );
   const visibleIds = useMemo(
     () => new Set(candidates.filter(isVisible).map((node) => node.id)),
@@ -210,6 +250,16 @@ export function ApiMethodDiagram({
   );
   const textInset = compact ? 9 : 12;
   const edges = branches.edges;
+  const activeEdge =
+    edgeSelection &&
+    edgeSelection.requestId === request?.requestId &&
+    edgeSelection.routeId === route?.id
+      ? edges.find((edge) => edgeKey(edge) === edgeSelection.key)
+      : undefined;
+  function selectNode(id: string) {
+    setEdgeSelection(undefined);
+    select(id);
+  }
   const first = layout.positions.values().next().value;
   const camera = useTraceDiagramCamera(layout, {
     x: (first?.x ?? 0) + cardWidth / 2,
@@ -284,7 +334,7 @@ export function ApiMethodDiagram({
     const position = layout.positions.get(pendingLocate);
     if (position) {
       camera.centerOn(position.x + cardWidth / 2, position.y + cardHeight / 2);
-      select(pendingLocate);
+      selectNode(pendingLocate);
       camera.viewport.current?.focus({ preventScroll: true });
     }
     setPendingLocate(undefined);
@@ -303,9 +353,10 @@ export function ApiMethodDiagram({
       className={trace.diagram + ' ' + canvas.canvas}
       aria-label="接口方法调用关系"
       onKeyDown={(event) => {
-        if (event.key !== 'Escape' || (!filterOpen && !selected)) return;
+        if (event.key !== 'Escape' || (!filterOpen && !selected && !activeEdge)) return;
         event.stopPropagation();
         if (filterOpen) closeFilter();
+        else if (activeEdge) setEdgeSelection(undefined);
         else closeDetails();
       }}
     >
@@ -339,6 +390,9 @@ export function ApiMethodDiagram({
         >
           过滤方法{filteredCount > 0 ? '（' + filteredCount + '）' : ''}
         </button>
+        {Boolean(request?.calls.size) && (
+          <span className={canvas.hiddenCount}># 表示本次请求的进入顺序</span>
+        )}
         {collapsed.size > 0 && (
           <>
             <span className={canvas.hiddenCount}>
@@ -411,7 +465,7 @@ export function ApiMethodDiagram({
               >
                 <circle className={trace.gridDot} cx="1" cy="1" r="1" />
               </pattern>
-              {['idle', 'running', 'completed', 'error', 'incomplete'].map((state) => (
+              {['idle', 'running', 'completed', 'error', 'incomplete', 'highlight'].map((state) => (
                 <marker
                   key={state}
                   id={definition + state}
@@ -426,7 +480,12 @@ export function ApiMethodDiagram({
                 </marker>
               ))}
             </defs>
-            <rect width="100%" height="100%" fill={'url(#' + definition + ')'} />
+            <rect
+              onClick={() => setEdgeSelection(undefined)}
+              width="100%"
+              height="100%"
+              fill={'url(#' + definition + ')'}
+            />
             <g ref={world} transform={`translate(${x} ${y}) scale(${zoom})`}>
               {'groups' in layout &&
                 layout.groups.map((group) => (
@@ -450,6 +509,15 @@ export function ApiMethodDiagram({
                   to = layout.positions.get(edge.to);
                 if (!from || !to) return null;
                 const key = edgeKey(edge);
+                const highlighted = edge === activeEdge;
+                function toggleEdge() {
+                  select(undefined);
+                  setEdgeSelection(
+                    highlighted
+                      ? undefined
+                      : { key, requestId: request?.requestId, routeId: route?.id },
+                  );
+                }
                 const activity =
                   edge.from === httpEntryId
                     ? observed.entryStates.get(edge.to)
@@ -474,13 +542,24 @@ export function ApiMethodDiagram({
                     }
                     data-from={edge.from}
                     data-to={edge.to}
-                    aria-hidden="true"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={'调用连线：' + from.node.name + ' → ' + to.node.name}
+                    aria-pressed={highlighted}
+                    onClick={toggleEdge}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleEdge();
+                      }
+                    }}
                   >
                     <path
                       d={path}
                       className={styles.edge}
-                      markerEnd={'url(#' + definition + state + ')'}
+                      markerEnd={'url(#' + definition + (highlighted ? 'highlight' : state) + ')'}
                     />
+                    <path d={path} className={styles.edgeHit} />
                     {activity?.lastSuccessSeq !== undefined && (
                       <path
                         key={request?.requestId}
@@ -524,21 +603,30 @@ export function ApiMethodDiagram({
                       ? ''
                       : '动态';
                 const hasChildren = Boolean(branches.childCounts.get(node.id));
+                const detailWidth = cardWidth - 2 * textInset - (hasChildren && compact ? 28 : 0);
+                const order = previewCallOrder(observed.byNode.get(node.id), detailWidth);
+                const statusY = (compact ? 57 : 67) + (order ? 6 : 0);
                 return (
                   <g key={node.id} transform={`translate(${left} ${top})`}>
                     <g
                       role="button"
                       tabIndex={0}
                       aria-label={(isEntry ? name + ' ' + route.path : name) + '，' + status}
+                      aria-description={order ? '本次请求的进入顺序 ' + order : undefined}
                       aria-pressed={node.id === selectedId}
                       data-state={state}
+                      data-endpoint={
+                        (activeEdge &&
+                          (node.id === activeEdge.from || node.id === activeEdge.to)) ||
+                        undefined
+                      }
                       data-entry={isEntry || undefined}
                       className={styles.method}
-                      onClick={() => select(node.id)}
+                      onClick={() => selectNode(node.id)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          select(node.id);
+                          selectNode(node.id);
                         }
                       }}
                     >
@@ -569,20 +657,27 @@ export function ApiMethodDiagram({
                           height="30"
                           overflow="hidden"
                         >
-                          <text className={trace.nodeName} y={compact ? 19 : 23}>
+                          <text
+                            className={trace.nodeName}
+                            y={(compact ? 19 : 23) - (order ? 3 : 0)}
+                          >
                             {nodeLabel(compact ? name.split('.').at(-1) || name : name)}
                           </text>
                         </svg>
-                        <svg
-                          width={cardWidth - 2 * textInset - (hasChildren && compact ? 28 : 0)}
-                          height={cardHeight}
-                          overflow="hidden"
-                        >
-                          <text className={trace.nodeAddress} y={compact ? 39 : 44}>
+                        <svg width={detailWidth} height={cardHeight} overflow="hidden">
+                          <text
+                            className={trace.nodeAddress}
+                            y={(compact ? 39 : 44) - (order ? 7 : 0)}
+                          >
                             {file}
                           </text>
+                          {order && (
+                            <text className={styles.callOrder} y={compact ? 47 : 55}>
+                              {order}
+                            </text>
+                          )}
                         </svg>
-                        <text className={styles.state} y={compact ? 57 : 67}>
+                        <text className={styles.state} y={statusY}>
                           {status}
                           {isEntry && request?.end && ' · HTTP ' + request.end.status}
                           {activity ? ' · ' + activity.count + ' 次' : ''}
@@ -593,7 +688,7 @@ export function ApiMethodDiagram({
                         <text
                           className={trace.metrics}
                           x={cardWidth - 2 * textInset}
-                          y={compact ? 57 : 67}
+                          y={statusY}
                           textAnchor="end"
                         >
                           {metric}
@@ -621,6 +716,12 @@ export function ApiMethodDiagram({
             nodes={candidates}
             excluded={excluded}
             hideStatic={hideStatic}
+            hasRequest={Boolean(request)}
+            hideUnexecuted={hideUnexecuted}
+            onHideUnexecuted={setHideUnexecuted}
+            minimumSeconds={minimumSeconds}
+            onMinimumSeconds={setMinimumSeconds}
+            automaticallyHidden={automaticallyHidden}
             onHideStatic={setHideStatic}
             visibleIds={visibleIds}
             onToggle={toggleMethod}
@@ -628,6 +729,8 @@ export function ApiMethodDiagram({
             onClear={() => {
               setExcluded(new Set());
               setHideStatic(false);
+              setHideUnexecuted(false);
+              setMinimumSeconds('');
             }}
             onClose={closeFilter}
           />
@@ -697,6 +800,12 @@ function MethodFilter({
   nodes,
   excluded,
   hideStatic,
+  hasRequest,
+  hideUnexecuted,
+  onHideUnexecuted,
+  minimumSeconds,
+  onMinimumSeconds,
+  automaticallyHidden,
   onHideStatic,
   visibleIds,
   onToggle,
@@ -707,6 +816,12 @@ function MethodFilter({
   id: string;
   nodes: MethodNode[];
   excluded: ReadonlySet<string>;
+  hasRequest: boolean;
+  hideUnexecuted: boolean;
+  onHideUnexecuted: (value: boolean) => void;
+  minimumSeconds: string;
+  onMinimumSeconds: (value: string) => void;
+  automaticallyHidden: (node: MethodNode) => boolean;
   hideStatic: boolean;
   onHideStatic: (value: boolean) => void;
   visibleIds: ReadonlySet<string>;
@@ -733,24 +848,62 @@ function MethodFilter({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <button type="button" disabled={!excluded.size && !hideStatic} onClick={onClear}>
+        <button
+          type="button"
+          disabled={!excluded.size && !hideStatic && !hideUnexecuted && !minimumSeconds}
+          onClick={onClear}
+        >
           清除过滤
         </button>
         <button type="button" aria-label="关闭方法过滤" onClick={onClose}>
           关闭
         </button>
       </div>
-      <label className="form-check form-switch mt-2">
-        <input
-          className="form-check-input"
-          type="checkbox"
-          role="switch"
-          checked={hideStatic}
-          onChange={(event) => onHideStatic(event.target.checked)}
-        />
-        过滤静态方法
-      </label>
+      <div className={styles.filterOptions}>
+        <label className={styles.filterOption}>
+          过滤静态方法
+          <input
+            className={styles.filterSwitch}
+            type="checkbox"
+            role="switch"
+            checked={hideStatic}
+            onChange={(event) => onHideStatic(event.target.checked)}
+          />
+        </label>
+
+        <label className={styles.filterOption}>
+          过滤未执行方法
+          <input
+            className={styles.filterSwitch}
+            type="checkbox"
+            role="switch"
+            disabled={!hasRequest}
+            checked={hideUnexecuted}
+            onChange={(event) => onHideUnexecuted(event.target.checked)}
+          />
+        </label>
+        <label className={styles.filterOption}>
+          最短执行时间
+          <span className={styles.secondsField}>
+            <input
+              aria-label="最短执行时间（秒）"
+              inputMode="decimal"
+              type="number"
+              min="0"
+              step="any"
+              disabled={!hasRequest}
+              value={minimumSeconds}
+              placeholder="不限"
+              onChange={(event) =>
+                onMinimumSeconds(event.target.validity.rangeUnderflow ? '' : event.target.value)
+              }
+            />
+            <span aria-hidden="true">秒</span>
+          </span>
+        </label>
+      </div>
       <p>隐藏仅做本地同步计算的方法。查库、接口请求、等待或无法判断的方法会保留。</p>
+      <p>同一方法的所有调用均已结束且耗时都小于此值时隐藏。</p>
       <p>勾选列表可单独隐藏方法，匿名函数自动隐藏。</p>
       <div className={styles.filterList}>
         {matches.map((node) => (
@@ -759,7 +912,7 @@ function MethodFilter({
               <input
                 type="checkbox"
                 checked={!visibleIds.has(node.id)}
-                disabled={hideStatic && node.computationOnly === true}
+                disabled={automaticallyHidden(node)}
                 onChange={() => onToggle(node.id)}
                 aria-label={'隐藏 ' + node.name + '（' + node.file + ':' + node.line + '）'}
               />
@@ -837,10 +990,13 @@ function MethodDetails({
                 <option value="">跟随最近一次</option>
                 {batch.map((item, offset) => (
                   <option key={item.callId} value={item.callId}>
-                    第 {pageStart + offset + 1} 次调用
+                    第 {pageStart + offset + 1} 次调用 · 请求 #{item.requestOrder}
                   </option>
                 ))}
               </select>
+            )}
+            {chosenIndex === undefined && (
+              <span className="small">请求内顺序 #{call.requestOrder}</span>
             )}
             <span className="small">
               {call.exit
@@ -887,9 +1043,8 @@ function MethodDetails({
                 }}
               >
                 <label>
-                  调用序号{' '}
+                  本方法第几次调用{' '}
                   <input
-                    aria-label="调用序号"
                     type="number"
                     name="ordinal"
                     min={1}

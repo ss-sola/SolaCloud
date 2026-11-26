@@ -201,7 +201,9 @@ it('fits the version-check topology at readable scale on a 390px phone and route
       .getAttribute('transform')!
       .match(/[-\d.]+/g)!
       .map(Number);
-  const buttons = Array.from(ui.container.querySelectorAll('g[role="button"][data-state]'));
+  const buttons = Array.from(
+    ui.container.querySelectorAll('g[role="button"][data-state]:has(> rect)'),
+  );
   expect(buttons).toHaveLength(9);
   const [offsetX, offsetY] = origin(buttons[0].parentElement!.parentElement!);
   const cards = buttons.map((button) => {
