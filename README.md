@@ -35,7 +35,7 @@ SDK 以本地目录包安装。修改 SDK 后先重新构建，再在 SolaCloud 
 
 首次部署请在执行种子脚本的同一个 PostgreSQL 会话设置 `solacloud.initial_admin_password_hash`，值由 system-service 的 `PasswordUtil.hash` 生成。省略时管理员账号需要先配置密码才可登录。模型 API 密钥按部署环境配置。
 
-先启动 NestCloud。在其控制台按 [JSONC 模板](config-center/) 填写并发布五个服务的配置，包括数据库凭据和共享会话配置。在各应用目录复制 `.env.example` 为 `.env`，填写服务名、控制面地址和启用鉴权时所需的 Token。随后启动所需的后端和网关。使用 `http://localhost:5173` 访问管理前端，浏览器直接请求 `http://localhost:3100/api/...`。
+先启动 NestCloud。在控制台参照各服务的 `.env.example` 创建并发布 `<ServiceName>.jsonc`，填写数据库凭据和共享会话配置。从各应用的 `.env.example` 复制「本地启动」各段到 `.env`，填写服务名、控制面地址和启用鉴权时所需的 Token。把「配置中心」段中的业务项按部署环境填写到对应的 JSONC 配置。随后启动所需的后端和网关。使用 `http://localhost:5173` 访问管理前端，浏览器直接请求 `http://localhost:3100/api/...`。
 
 部署时通过 `VITE_GATEWAY_ORIGIN` 设置浏览器可访问的网关地址，并在网关的 `GatewayAllowedOrigins` 中配置前端来源。[前端 API 配置](web/NestCloudWeb/docs/api/模块总览.md)
 
