@@ -11,9 +11,38 @@ import type { ProbeLimits } from '../../constants/probe-limits.constants';
 import type { ProbeTarget } from './types';
 import { ProbeQueueRelay } from './probe-queue-relay';
 
+const STARTUP_TIMEOUT_MS = 60_000;
 const SESSION_LIMIT_MS = 30 * 60_000;
 const REPLAY_TTL_MS = 5 * 60_000;
 const STOP_TIMEOUT_MS = 4_000;
+const STARTUP_OUTPUT_TAIL_LENGTH = 256;
+// Report recognized causes as fixed text. Target logs can contain credentials or connection URLs.
+const STARTUP_FAILURE_HINTS = [
+  [
+    /\b(?:ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND)\b|Cannot find (?:module|package)/i,
+    '缺少启动所需的模块或依赖包',
+  ],
+  [
+    /\bERR_(?:UNKNOWN_FILE_EXTENSION|UNSUPPORTED_TYPESCRIPT_SYNTAX)\b/,
+    'Node 无法加载目标入口，请检查构建产物和 Node 版本',
+  ],
+  [/\bEADDRINUSE\b/, '目标监听端口被占用（EADDRINUSE）'],
+  [/\bEADDRNOTAVAIL\b/, '目标监听地址在当前主机不可用（EADDRNOTAVAIL）'],
+  [/\bECONNREFUSED\b/, '依赖服务拒绝连接（ECONNREFUSED）'],
+  [/\b(?:ETIMEDOUT|ESOCKETTIMEDOUT)\b/, '连接依赖服务超时'],
+  [/\b(?:ENOTFOUND|EAI_AGAIN)\b/, '依赖服务地址解析失败'],
+  [/\b(?:EACCES|EPERM)\b/, '目标进程缺少所需的系统权限'],
+  [/\bENOENT\b/, '目标进程所需的文件或程序不存在（ENOENT）'],
+  [
+    /\b(?:WRONGPASS|NOAUTH|28P01)\b|password authentication failed/i,
+    '依赖服务认证失败，请检查目标项目的连接配置',
+  ],
+  [
+    /配置(?:校验|验证)失败|\bconfig(?:uration)? validation (?:failed|error)\b/i,
+    '目标项目配置校验失败',
+  ],
+  [/\bSyntaxError\b/, '目标项目加载时出现语法错误（SyntaxError）'],
+] as const;
 const TRACE_EVENTS = new Set(['request', 'requestParams', 'enter', 'leave', 'end']);
 const HOST_ENV =
   /^(path|systemroot|windir|comspec|pathext|temp|tmp|tmpdir|home|userprofile|localappdata|appdata|lang|lc_all|tz)$/i;
@@ -72,23 +101,54 @@ export class ProbeProcessService implements OnModuleDestroy {
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => HOST_ENV.test(key)),
     );
-    const spawn = (filename: string) =>
+    const spawn = (filename: string, output: 'inherit' | 'pipe' = 'inherit') =>
       fork(filename, [], {
         cwd: project,
         execArgv: ['--import', pathToFileURL(runtimePath('probe.mjs')).href],
         env: { ...env, NODE_ENV: 'development', SOLA_CALL_GRAPH_PROJECT: '1' },
-        stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+        stdio: ['ignore', output, output, 'ipc'],
         windowsHide: true,
       });
-    const child = spawn(entry);
+    const child = spawn(entry, 'pipe');
     this.session = session;
     this.child = child;
     session.publish({ type: 'status', state: 'starting' });
+    let listening = false;
+    let startupHint: string | undefined;
+    function failureMessage(message: string, hint = startupHint) {
+      return [message, hint, '完整启动日志见服务终端。'].filter(Boolean).join(' ');
+    }
+    const startupTimeout = setTimeout(() => {
+      if (session.closed) return;
+      void this.terminate(
+        failureMessage(`启动超时，目标项目在 ${STARTUP_TIMEOUT_MS / 1000} 秒内未监听 HTTP 端口。`),
+        'error',
+      );
+    }, STARTUP_TIMEOUT_MS);
+    startupTimeout.unref();
+    for (const [stream, destination] of [
+      [child.stdout, process.stdout],
+      [child.stderr, process.stderr],
+    ] as const) {
+      if (!stream) continue;
+      let tail = '';
+      stream.setEncoding('utf8');
+      stream.on('data', (chunk: string) => {
+        if (listening || session.closed) return;
+        const output = tail + chunk;
+        startupHint =
+          STARTUP_FAILURE_HINTS.find(([pattern]) => pattern.test(output))?.[1] ?? startupHint;
+        tail = output.slice(-STARTUP_OUTPUT_TAIL_LENGTH);
+      });
+      stream.pipe(destination, { end: false });
+    }
     const relay = new ProbeQueueRelay((event) => session.publish(event));
     function publish(raw: unknown, fromWorker: boolean) {
       if (session.closed || typeof raw !== 'object' || !raw || !('type' in raw)) return;
       const event = raw as ProbeEvent;
       if (event.type === 'listening' && !fromWorker && Number.isInteger(event.port)) {
+        listening = true;
+        clearTimeout(startupTimeout);
         session.publish({ type: 'status', state: 'listening', port: event.port });
       } else if (event.type === 'warning' && typeof event.message === 'string') {
         session.publish({ type: 'warning', message: event.message });
@@ -124,14 +184,33 @@ export class ProbeProcessService implements OnModuleDestroy {
     }
     receive(child, false);
     const httpExited = new Promise<void>((resolve) => {
-      child.once('error', () => session.finish('error', '无法启动目标进程，请查看服务终端'));
+      let drainTimeout: ReturnType<typeof setTimeout> | undefined;
+      child.once('error', (error) => {
+        const hint = STARTUP_FAILURE_HINTS.find(([pattern]) => pattern.test(error.message))?.[1];
+        session.finish('error', failureMessage('无法启动目标进程。', hint));
+      });
+      child.once('exit', () => {
+        clearTimeout(startupTimeout);
+        // Descendants can keep the target's output pipes open after it exits.
+        drainTimeout = setTimeout(() => {
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+        }, STOP_TIMEOUT_MS);
+        drainTimeout.unref();
+      });
       child.once('close', (code, signal) => {
+        clearTimeout(drainTimeout);
+        clearTimeout(startupTimeout);
         clearTimeout(this.timeout);
-        if (!session.closed)
+        if (!session.closed) {
+          const outcome = '（' + (signal ?? code) + '）';
           session.finish(
             'error',
-            '目标进程已退出（' + (signal ?? code) + '），请查看服务终端中的启动日志',
+            listening
+              ? '目标进程已退出' + outcome + '，请查看服务终端。'
+              : failureMessage('目标进程在监听前退出' + outcome + '。'),
           );
+        }
         this.child = undefined;
         for (const background of this.workers) {
           if (background.killed) continue;
@@ -229,13 +308,17 @@ export class ProbeProcessService implements OnModuleDestroy {
     return { ok: true };
   }
 
-  private async terminate(message: string) {
+  private async terminate(message: string, state: 'stopped' | 'error' = 'stopped') {
     const processes = [this.child, ...this.workers].filter((child) => child !== undefined);
     if (!processes.length) return;
-    this.session?.finish('stopped', message);
+    this.session?.finish(state, message);
     for (const child of processes) child.kill('SIGTERM');
     const force = setTimeout(() => {
-      for (const child of processes) child.kill('SIGKILL');
+      for (const child of processes) {
+        child.kill('SIGKILL');
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      }
     }, STOP_TIMEOUT_MS);
     try {
       await this.exited;

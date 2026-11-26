@@ -1,6 +1,6 @@
 import type { Response } from 'express';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -309,6 +309,71 @@ describe('接口调用图服务', () => {
       await rm(project, { recursive: true, force: true });
     }
   }, 20000);
+
+  it('目标进程启动时退出，事件显示可定位的原因且不携带原始日志', async () => {
+    const project = await mkdtemp(path.join(os.tmpdir(), 'call-graph-startup-'));
+    const probes = new ProbeProcessService();
+    try {
+      await writeFile(
+        path.join(project, 'index.cjs'),
+        "process.stderr.write('Error: connect ECONNREFUSED (synthetic-test-value)', () => process.exit(23));",
+      );
+      const { sessionId } = probes.start(
+        17,
+        {
+          project: await realpath(project),
+          framework: 'koa',
+          entry: 'index.cjs',
+          routes: [],
+          computations: () => undefined,
+        },
+        DEFAULT_PROBE_LIMITS,
+      );
+      const stream = StreamRecorder.subscribe(probes.owned(17, sessionId));
+      await vi.waitFor(() => expect(stream.writableEnded).toBe(true), { timeout: 6000 });
+      expect(stream.events.at(-1)).toMatchObject({
+        state: 'error',
+        message: expect.stringMatching(/23.*ECONNREFUSED/),
+      });
+      expect(stream.events.at(-1)?.message).not.toContain('synthetic-test-value');
+    } finally {
+      await probes.onModuleDestroy();
+      await rm(project, { recursive: true, force: true });
+    }
+  }, 10000);
+
+  it('进程未监听时按启动时限结束会话并释放探针', async () => {
+    const project = await mkdtemp(path.join(os.tmpdir(), 'call-graph-startup-timeout-'));
+    const probes = new ProbeProcessService();
+    try {
+      await writeFile(path.join(project, 'index.cjs'), 'setInterval(() => {}, 1000);');
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const target = {
+        project: await realpath(project),
+        framework: 'koa' as const,
+        entry: 'index.cjs',
+        routes: [],
+        computations: () => undefined,
+      };
+      const { sessionId } = probes.start(17, target, DEFAULT_PROBE_LIMITS);
+      const stream = StreamRecorder.subscribe(probes.owned(17, sessionId));
+      vi.advanceTimersByTime(59_999);
+      expect(stream.events.at(-1)).toMatchObject({ state: 'starting' });
+      vi.advanceTimersByTime(1);
+      expect(stream.events.at(-1)).toMatchObject({
+        state: 'error',
+        message: expect.stringContaining('60 秒内未监听 HTTP 端口'),
+      });
+      expect(stream.writableEnded).toBe(true);
+      await vi.waitFor(() => {
+        expect(() => probes.start(17, target, DEFAULT_PROBE_LIMITS)).not.toThrow();
+      });
+    } finally {
+      vi.useRealTimers();
+      await probes.onModuleDestroy();
+      await rm(project, { recursive: true, force: true });
+    }
+  }, 10000);
 
   it('回放窗口淘汰旧游标，已断开的订阅释放连接名额', () => {
     const session = new ProbeSession(5);
