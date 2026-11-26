@@ -135,6 +135,7 @@ describe('接口调用图', () => {
       ui.container.querySelector(`[data-from="${from}"][data-to="${to}"]`);
     expect(ui.queryByRole('button', { name: /map 回调/ })).toBeNull();
     expect(edge(node.id, middle.id)).toHaveAttribute('data-state', 'running');
+    expect(ui.getByRole('button', { name: 'compare，执行中' })).toHaveTextContent('#4');
     fireEvent.click(ui.getByRole('button', { name: 'compare，执行中' }));
     fireEvent.click(ui.getByRole('button', { name: '过滤方法' }));
     const search = ui.getByRole('searchbox', { name: '搜索方法' });
@@ -142,6 +143,7 @@ describe('接口调用图', () => {
     fireEvent.click(ui.getByRole('checkbox', { name: /隐藏 readCache/ }));
     expect(ui.queryByRole('button', { name: 'readCache，执行中' })).toBeNull();
     expect(edge(node.id, child.id)).toHaveAttribute('data-state', 'running');
+    expect(ui.getByRole('button', { name: 'compare，执行中' })).toHaveTextContent('#4');
     expect(edge(node.id, child.id)?.querySelector('path[pathLength]')).toBeTruthy();
     expect(ui.getByRole('region', { name: '方法详情' })).toHaveTextContent('compare');
     const completed = applyEvents(initial, [
@@ -197,6 +199,10 @@ describe('接口调用图', () => {
       'completed',
     );
     expect(ui.getByRole('region', { name: '方法详情' })).toHaveTextContent('failed');
+    fireEvent.click(ui.getByRole('button', { name: '收起 getVersion 的下游方法' }));
+    expect(ui.queryByRole('button', { name: /^compare，/ })).toBeNull();
+    fireEvent.click(ui.getByRole('button', { name: '展开 getVersion 的下游方法' }));
+    expect(ui.getByRole('button', { name: /^compare，/ })).toHaveTextContent('#4');
     fireEvent.change(search, { target: { value: 'getVersion' } });
     fireEvent.click(ui.getByRole('checkbox', { name: /隐藏 getVersion/ }));
     expect(ui.queryByRole('button', { name: 'getVersion，已返回' })).toBeNull();
@@ -236,6 +242,7 @@ describe('接口调用图', () => {
     expect(screen.getByText('已识别 2 个独立 BullMQ Worker 入口')).toBeVisible();
     expect(screen.queryByLabelText(/Worker 入口文件/)).toBeNull();
     expect(await screen.findByRole('button', { name: 'getVersion，待采集' })).toBeVisible();
+    expect(screen.queryByText(/^#\d/)).toBeNull();
     expect(load).toHaveBeenCalledWith(
       'E:\\project\\wzj-nodejs-v2',
       route.id,
@@ -324,11 +331,15 @@ describe('接口调用图', () => {
       receive({ seq: 10, type: 'end', requestId: 'first', status: 400, durationMs: 8, dropped: 0 });
     });
     expect(await screen.findByText('"other"')).toBeVisible();
+    expect(screen.getByText('请求内顺序 #1')).toBeVisible();
     fireEvent.change(screen.getByLabelText('请求记录'), { target: { value: 'first' } });
     const detail = within(screen.getByRole('region', { name: '方法详情' }));
     expect(detail.getByText('"bad"')).toBeVisible();
+    expect(detail.getByText('请求内顺序 #2')).toBeVisible();
+    expect(screen.getByRole('button', { name: /^getVersion，/ })).toHaveTextContent('#1 #2');
     fireEvent.change(detail.getByRole('combobox'), { target: { value: 'a' } });
     expect(detail.getByText('"old"')).toBeVisible();
+    expect(detail.getByRole('combobox')).toHaveDisplayValue('第 1 次调用 · 请求 #1');
     expect(screen.getByRole('button', { name: 'compare，未执行' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '停止探针' }));
     expect(stop).toHaveBeenCalledWith('session');

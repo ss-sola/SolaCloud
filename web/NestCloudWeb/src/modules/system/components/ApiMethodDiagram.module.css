@@ -224,6 +224,10 @@
   fill: var(--wf-muted);
   font-size: 12px;
 }
+.callOrder {
+  fill: var(--wf-accent);
+  font: 600 12px var(--wf-mono);
+}
 .method[data-state='completed'] .state {
   fill: var(--wf-success);
 }
@@ -286,6 +290,31 @@
 }
 .connection[data-state='incomplete'] .edge {
   stroke-dasharray: 5 4;
+}
+.edgeHit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.connection[aria-pressed='true'][data-state] .edge,
+.connection:focus-visible[data-state] .edge {
+  stroke: var(--wf-accent);
+  stroke-width: 3;
+  opacity: 1;
+}
+.connection[aria-pressed='true'] {
+  opacity: 1;
+}
+.method[data-endpoint] .box {
+  stroke: var(--wf-accent);
+  stroke-width: 4;
+  fill: color-mix(in srgb, var(--wf-accent) 18%, var(--wf-surface));
+}
+.arrow[data-state='highlight'] {
+  fill: var(--wf-accent);
 }
 .arrow {
   fill: var(--edge-color);
@@ -364,6 +393,76 @@
 .filter p {
   color: var(--wf-secondary);
   margin: 0.45rem 0;
+}
+.filterOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+.filterOption {
+  display: grid;
+  grid-template-rows: auto 1.8rem;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--wf-text);
+}
+.filterSwitch {
+  appearance: none;
+  width: 2.1rem;
+  height: 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid var(--wf-border);
+  background: var(--wf-stage);
+  cursor: pointer;
+}
+.filterSwitch::before {
+  content: '';
+  display: block;
+  margin: 0.12rem;
+  width: 0.82rem;
+  height: 0.82rem;
+  border-radius: 50%;
+  background: var(--wf-muted);
+}
+.filterSwitch:checked {
+  background: var(--wf-accent);
+}
+.filterSwitch:checked::before {
+  transform: translateX(0.9rem);
+  background: var(--wf-stage);
+}
+.secondsField {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 7rem;
+  height: 100%;
+  padding: 0 0.45rem;
+  color: var(--wf-muted);
+  background: var(--wf-stage);
+  border: 1px solid var(--wf-border);
+  border-radius: 5px;
+}
+.secondsField input {
+  width: 100%;
+  min-width: 0;
+  color: var(--wf-text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+.secondsField:focus-within,
+.filterSwitch:focus-visible {
+  outline: 2px solid var(--wf-accent);
+  outline-offset: 1px;
+}
+.filterSwitch:disabled,
+.secondsField:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
 }
 .filterList {
   overflow: auto;
